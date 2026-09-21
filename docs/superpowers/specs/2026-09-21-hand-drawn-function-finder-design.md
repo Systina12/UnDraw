@@ -18,7 +18,7 @@ draw in a mathematical coordinate plane
 
 The solver optimizes a practical minimum-description-length objective: once the residual is close to the estimated drawing noise, additional accuracy receives little reward and simpler expressions win.
 
-The first release must provide a complete usable loop. It must recognize common polynomial, trigonometric, exponential, logarithmic, absolute-value, rational, Gaussian, logistic, and damped-periodic curves; return a stable universal approximation for curves outside the model bank; detect curves that cannot reasonably be represented as y=f(x); and keep all expensive work in a Web Worker.
+The first release must provide a complete usable loop. It must recognize common polynomial, trigonometric, exponential, logarithmic, absolute-value, rational, Gaussian, hyperbolic-tangent, logistic, and damped-periodic curves; return a stable universal approximation for curves outside the model bank; detect curves that cannot reasonably be represented as y=f(x); and keep all expensive work in a Web Worker.
 
 The first release does not need a neural network, a server, persistent accounts, multi-user collaboration, or a full computer-algebra system. The mathematical core must remain independent of the UI so it can later move to Node.js, Electron, WASM, mobile, or a browser extension.
 
@@ -179,6 +179,7 @@ The first release implements these producers:
 | Absolute/hinge | Scan breakpoint and solve linear coefficients | a abs(x-b)+c or affine hinge |
 | Rational | Linear initialization, LM refinement, denominator safety checks | P(x)/Q(x) with m≤3,n≤2 |
 | Gaussian | Multi-start LM | a exp(-((x-b)/c)^2)+d |
+| Hyperbolic tangent | Multi-start LM | a tanh(bx+c)+d |
 | Logistic | Multi-start LM | a/(1+exp(-b(x-c)))+d |
 | Damped sinusoid | Multi-start LM | exp(ax)(b sin(ωx)+c cos(ωx))+d |
 
@@ -280,7 +281,7 @@ Implementation proceeds in working increments:
 2. Resampling, normalization, smoothing, noise, and core numerical utilities.
 3. Polynomial and sinusoid model bank with visible fitting.
 4. AST, LaTeX/plain renderers, candidate abstraction, scoring, and Pareto UI.
-5. Exponential, logarithmic, absolute, rational, Gaussian, logistic, and damped models.
+5. Exponential, logarithmic, absolute, rational, Gaussian, hyperbolic-tangent, logistic, and damped models.
 6. Constant beautification and simplifier.
 7. Worker protocol and progressive cancellation.
 8. FFT, feature analysis, symbolic grammar, semantic hashing, beam search, and universal fallback.
@@ -291,4 +292,3 @@ Every increment keeps the page runnable and ends with focused tests. The final b
 ## 12. Acceptance criteria
 
 The first release is complete when a user can open the page offline, draw a curve, release the pointer, see a fitted curve and formula, switch among Simple/Balanced/Accurate, and copy LaTeX. A noisy curve close to y=2sin(πx) must have a concise trigonometric candidate such as 2 sin(πx) on its frontier. Complex valid curves must receive a stable approximation. Circles and other multi-valued strokes must receive a clear mode explanation and parametric fallback when the fallback succeeds. No long solver computation may run on the main thread.
-
