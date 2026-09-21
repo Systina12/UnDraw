@@ -35,4 +35,12 @@ describe("fast model bank", () => {
     expect(rmse).toBeLessThan(0.05);
     expect(best.modelFamily).toBe("sinusoid");
   });
+
+  it("keeps the higher-degree Chebyshev fallback available", () => {
+    const result = dataFor((x) => x ** 10 - 0.25 * x ** 8 + 0.5);
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    const candidates = fitPolynomial(result.data, 16);
+    expect(candidates.some((candidate) => candidate.modelFamily === "polynomial-16")).toBe(true);
+  });
 });

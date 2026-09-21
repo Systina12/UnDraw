@@ -3,7 +3,7 @@ import { candidateFromNormalized, chebyshevBasis, chebyshevToPower, fitLinearBas
 
 export function fitPolynomial(data: CurveData, maxDegree = 8): Candidate[] {
   const candidates: Candidate[] = [];
-  const degreeLimit = Math.min(8, Math.max(0, maxDegree));
+  const degreeLimit = Math.min(16, Math.max(0, maxDegree));
   for (let degree = 0; degree <= degreeLimit; degree += 1) {
     const basis = data.normalizedX.map((value) => chebyshevBasis(value, degree));
     const fit = fitLinearBasis(basis, data.normalizedY, data.noise / Math.max(1e-9, data.normalization.ys));

@@ -7,6 +7,7 @@ export class CoordinateCanvas {
   private viewport: Viewport = { ...DEFAULT_VIEWPORT };
   private rawPoints: Point[] = [];
   private selected: CandidateResult | null = null;
+  private parametricCurve: { x: number[]; y: number[] } | null = null;
   private drawing = false;
   private panning = false;
   private pointerId: number | null = null;
@@ -34,19 +35,28 @@ export class CoordinateCanvas {
   }
 
   public setResult(result: SolveResult | null, candidate?: CandidateResult): void {
+    this.parametricCurve = null;
     this.selected = candidate ?? result?.balanced ?? null;
+    this.draw();
+  }
+
+  public setParametricCurve(curve: { x: readonly number[]; y: readonly number[] }): void {
+    this.selected = null;
+    this.parametricCurve = { x: [...curve.x], y: [...curve.y] };
     this.draw();
   }
 
   public clear(): void {
     this.rawPoints = [];
     this.selected = null;
+    this.parametricCurve = null;
     this.draw();
   }
 
   public undo(): void {
     this.rawPoints = [];
     this.selected = null;
+    this.parametricCurve = null;
     this.draw();
   }
 
@@ -77,6 +87,7 @@ export class CoordinateCanvas {
       const world = screenToWorld(this.lastScreen, this.viewport);
       this.rawPoints = [{ ...world, t: performance.now() }];
       this.selected = null;
+      this.parametricCurve = null;
       this.draw();
     }
   }
@@ -117,7 +128,7 @@ export class CoordinateCanvas {
     context.fillStyle = "#fbfcff";
     context.fillRect(0, 0, this.viewport.width, this.viewport.height);
     this.drawGrid(context);
-    this.drawCurve(context, this.selected?.plot.x, this.selected?.plot.y, "#7c3aed", 2.6);
+    this.drawCurve(context, this.parametricCurve?.x ?? this.selected?.plot.x, this.parametricCurve?.y ?? this.selected?.plot.y, "#7c3aed", 2.6);
     this.drawCurve(context, this.rawPoints.map((point) => point.x), this.rawPoints.map((point) => point.y), "#172033", 2.2);
     context.restore();
   }

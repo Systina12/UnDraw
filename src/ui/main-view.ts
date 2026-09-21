@@ -1,7 +1,7 @@
 import katex from "katex";
 import type { CandidateResult, SolveResult, WorkerResponse } from "../core/types";
 import { CoordinateCanvas } from "./canvas";
-import { formatParametricLatex, formatParametricPlain } from "./presentation";
+import { formatParametricLatex, formatParametricPlain, parametricPlot } from "./presentation";
 import { SolverWorkerClient } from "../worker/client";
 
 export function mountApplication(root: HTMLElement): void {
@@ -56,19 +56,47 @@ export function mountApplication(root: HTMLElement): void {
   const diagnostics = root.querySelector<HTMLElement>('[data-testid="diagnostics"]')!;
   let result: SolveResult | null = null;
   let selected: CandidateResult | null = null;
+  let copyLatexText = "";
+  let copyPlainText = "";
+  const modeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>(".mode-button"));
   const client = new SolverWorkerClient(() => new Worker(new URL("../worker/solver.worker.ts", import.meta.url), { type: "module" }));
   const plot = new CoordinateCanvas(canvas, (points) => {
+    result = null;
+    selected = null;
+    copyLatexText = "";
+    copyPlainText = "";
+    setModeButtonsEnabled(false);
     status.textContent = "Analyzing stroke…";
     client.solve(points, plot.getViewport(), { timeBudgetMs: 1500 }, (response) => handleResponse(response));
   });
 
+  function setModeButtonsEnabled(enabled: boolean): void {
+    modeButtons.forEach((button) => { button.disabled = !enabled; });
+  }
+
+  function resetPresentation(): void {
+    result = null;
+    selected = null;
+    copyLatexText = "";
+    copyPlainText = "";
+    modeButtons.forEach((button) => {
+      button.disabled = false;
+      button.classList.toggle("active", button.dataset.mode === "balanced");
+    });
+  }
+
   function handleResponse(response: WorkerResponse): void {
     if (response.type === "progress" && response.candidate) {
       selected = response.candidate;
+      setModeButtonsEnabled(false);
       renderCandidate(response.candidate, "Finding a simpler description…");
     } else if (response.type === "invalid") {
       result = null;
       selected = null;
+      copyLatexText = "";
+      copyPlainText = "";
+      setModeButtonsEnabled(false);
+      plot.setResult(null);
       status.textContent = "Needs a different stroke";
       formula.textContent = response.reason;
       plain.textContent = "";
@@ -76,15 +104,21 @@ export function mountApplication(root: HTMLElement): void {
       meta.textContent = "Try a single-valued y=f(x) curve, or draw a longer stroke.";
     } else if (response.type === "done") {
       result = response.result;
-      selected = response.result.balanced;
-      plot.setResult(result, selected);
+      plot.setResult(result, selected ?? undefined);
       const qualityText = response.result.quality === "excellent" ? "Excellent match" : response.result.quality === "good" ? "Good match" : response.result.quality === "approximation" ? "Approximation" : "Low confidence";
       if (response.result.mode === "parametric" && response.result.parametric) {
+        selected = null;
+        setModeButtonsEnabled(false);
         formula.innerHTML = katex.renderToString(formatParametricLatex(response.result.parametric.x, response.result.parametric.y), { displayMode: true, throwOnError: false });
         plain.textContent = formatParametricPlain(response.result.parametric.x, response.result.parametric.y);
+        copyLatexText = formatParametricLatex(response.result.parametric.x, response.result.parametric.y);
+        copyPlainText = formatParametricPlain(response.result.parametric.x, response.result.parametric.y);
+        plot.setParametricCurve(parametricPlot(response.result.parametric.x, response.result.parametric.y));
         quality.textContent = qualityText;
         meta.textContent = `parametric · x(t) and y(t) · t ∈ [0, 1]`;
       } else {
+        selected = response.result.balanced;
+        setModeButtonsEnabled(true);
         renderCandidate(selected, qualityText);
       }
       diagnostics.textContent = `${response.result.diagnostics.candidatesFitted} candidates · ${Math.round(response.result.diagnostics.runtimeMs)} ms`;
@@ -96,21 +130,23 @@ export function mountApplication(root: HTMLElement): void {
     if (!candidate) return;
     formula.innerHTML = katex.renderToString(candidate.latex, { displayMode: true, throwOnError: false });
     plain.textContent = candidate.plain;
+    copyLatexText = `y = ${candidate.latex}`;
+    copyPlainText = `y = ${candidate.plain}`;
     quality.textContent = qualityText;
     meta.textContent = `${candidate.modelFamily ?? "model"} · RMSE ${candidate.rmse.toPrecision(3)} · complexity ${candidate.complexity.toFixed(1)}`;
     plot.setResult(result, candidate);
   }
 
   root.querySelectorAll<HTMLButtonElement>(".mode-button").forEach((button) => button.addEventListener("click", () => {
-    if (!result) return;
+    if (!result || result.mode !== "function") return;
     const mode = button.dataset.mode;
     selected = mode === "simple" ? result.simple : mode === "accurate" ? result.accurate : result.balanced;
     root.querySelectorAll(".mode-button").forEach((item) => item.classList.toggle("active", item === button));
     renderCandidate(selected, result.quality === "excellent" ? "Excellent match" : result.quality === "good" ? "Good match" : "Approximation");
   }));
-  root.querySelector<HTMLButtonElement>('[data-action="clear"]')?.addEventListener("click", () => { client.cancel(); result = null; selected = null; plot.clear(); status.textContent = "Ready to draw"; formula.textContent = "Draw a curve to begin"; plain.textContent = ""; quality.textContent = ""; meta.textContent = ""; diagnostics.textContent = ""; });
-  root.querySelector<HTMLButtonElement>('[data-action="undo"]')?.addEventListener("click", () => { client.cancel(); plot.undo(); status.textContent = "Ready to draw"; });
+  root.querySelector<HTMLButtonElement>('[data-action="clear"]')?.addEventListener("click", () => { client.cancel(); resetPresentation(); plot.clear(); status.textContent = "Ready to draw"; formula.textContent = "Draw a curve to begin"; plain.textContent = ""; quality.textContent = ""; meta.textContent = ""; diagnostics.textContent = ""; });
+  root.querySelector<HTMLButtonElement>('[data-action="undo"]')?.addEventListener("click", () => { client.cancel(); resetPresentation(); plot.undo(); status.textContent = "Ready to draw"; formula.textContent = "Draw a curve to begin"; plain.textContent = ""; quality.textContent = ""; meta.textContent = ""; diagnostics.textContent = ""; });
   root.querySelector<HTMLButtonElement>('[data-action="reset"]')?.addEventListener("click", () => plot.resetView());
-  root.querySelector<HTMLButtonElement>('[data-action="copy-latex"]')?.addEventListener("click", () => { if (selected) void navigator.clipboard?.writeText(`y = ${selected.latex}`); });
-  root.querySelector<HTMLButtonElement>('[data-action="copy-plain"]')?.addEventListener("click", () => { if (selected) void navigator.clipboard?.writeText(`y = ${selected.plain}`); });
+  root.querySelector<HTMLButtonElement>('[data-action="copy-latex"]')?.addEventListener("click", () => { if (copyLatexText) void navigator.clipboard?.writeText(copyLatexText); });
+  root.querySelector<HTMLButtonElement>('[data-action="copy-plain"]')?.addEventListener("click", () => { if (copyPlainText) void navigator.clipboard?.writeText(copyPlainText); });
 }

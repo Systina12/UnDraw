@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatParametricLatex, formatParametricPlain } from "../src/ui/presentation";
+import { formatParametricLatex, formatParametricPlain, parametricPlot } from "../src/ui/presentation";
 import type { CandidateResult } from "../src/core/types";
 import { c, cos, mul, sin, x } from "../src/expr/ast";
 
@@ -19,5 +19,17 @@ describe("parametric presentation", () => {
     expect(plain).toContain("y(t)");
     expect(plain).toMatch(/\\*t/);
     expect(plain).not.toContain("2πx");
+  });
+
+  it("maps parametric candidate outputs into a world-space curve", () => {
+    const xCandidate = candidate("x(t)", "x(t)", x());
+    const yCandidate = candidate("y(t)", "y(t)", x());
+    xCandidate.plot = { x: [0, 0.5, 1], y: [3, 2, 1] };
+    yCandidate.plot = { x: [0, 0.5, 1], y: [0, 1, 0] };
+
+    expect(parametricPlot(xCandidate, yCandidate)).toEqual({
+      x: [3, 2, 1],
+      y: [0, 1, 0],
+    });
   });
 });
