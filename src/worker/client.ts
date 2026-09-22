@@ -24,11 +24,15 @@ export class SolverWorkerClient {
     worker.onmessage = (event) => {
       if (this.active?.id !== id || this.active.worker !== worker || event.data.id !== id) return;
       onResponse(event.data);
-      if (event.data.type === "done" || event.data.type === "invalid") this.active = null;
+      if (event.data.type === "done" || event.data.type === "invalid") {
+        worker.terminate();
+        this.active = null;
+      }
     };
     worker.onerror = () => {
       if (this.active?.id !== id || this.active.worker !== worker) return;
       onResponse({ type: "invalid", id, reason: "The solver worker failed. Please draw again." });
+      worker.terminate();
       this.active = null;
     };
     const { progress: _progress, now: _now, ...serializableOptions } = options;

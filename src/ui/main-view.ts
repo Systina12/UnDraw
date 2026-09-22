@@ -65,6 +65,7 @@ export function mountApplication(root: HTMLElement): void {
     selected = null;
     copyLatexText = "";
     copyPlainText = "";
+    setActiveMode("balanced");
     setModeButtonsEnabled(false);
     status.textContent = "Analyzing stroke…";
     client.solve(points, plot.getViewport(), { timeBudgetMs: 1500 }, (response) => handleResponse(response));
@@ -74,14 +75,18 @@ export function mountApplication(root: HTMLElement): void {
     modeButtons.forEach((button) => { button.disabled = !enabled; });
   }
 
+  function setActiveMode(mode: "simple" | "balanced" | "accurate"): void {
+    modeButtons.forEach((button) => { button.classList.toggle("active", button.dataset.mode === mode); });
+  }
+
   function resetPresentation(): void {
     result = null;
     selected = null;
     copyLatexText = "";
     copyPlainText = "";
+    setActiveMode("balanced");
     modeButtons.forEach((button) => {
       button.disabled = false;
-      button.classList.toggle("active", button.dataset.mode === "balanced");
     });
   }
 
@@ -95,6 +100,7 @@ export function mountApplication(root: HTMLElement): void {
       selected = null;
       copyLatexText = "";
       copyPlainText = "";
+      setActiveMode("balanced");
       setModeButtonsEnabled(false);
       plot.setResult(null);
       status.textContent = "Needs a different stroke";
@@ -118,6 +124,7 @@ export function mountApplication(root: HTMLElement): void {
         meta.textContent = `parametric · x(t) and y(t) · t ∈ [0, 1]`;
       } else {
         selected = response.result.balanced;
+        setActiveMode("balanced");
         setModeButtonsEnabled(true);
         renderCandidate(selected, qualityText);
       }

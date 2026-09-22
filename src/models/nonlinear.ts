@@ -59,6 +59,13 @@ export function fitDampedSinusoid(data: CurveData): Candidate[] {
     const envelope = Math.exp(Math.max(-30, Math.min(30, (parameters[0] ?? 0) * value)));
     return envelope * ((parameters[1] ?? 1) * Math.sin((parameters[3] ?? 4) * value) + (parameters[2] ?? 0) * Math.cos((parameters[3] ?? 4) * value)) + (parameters[4] ?? 0) - (ys[index] ?? 0);
   });
-  const expression = (parameters: readonly number[]) => add([mul(exp(mul(c(parameters[0] ?? 0), x())), add([mul(c(parameters[1] ?? 1), sin(mul(c(parameters[3] ?? 4), x()))), mul(c(parameters[2] ?? 0), { kind: "cos", arg: mul(c(parameters[3] ?? 4), x()) })])), c(parameters[4] ?? 0)]);
+  const expression = (parameters: readonly number[]) => {
+    const sineCoefficient = parameters[1] ?? 1;
+    const cosineCoefficient = parameters[2] ?? 0;
+    const amplitude = Math.hypot(sineCoefficient, cosineCoefficient);
+    const phase = Math.atan2(cosineCoefficient, sineCoefficient);
+    const oscillation = sin(add([mul(c(parameters[3] ?? 4), x()), c(phase)]));
+    return add([mul(c(amplitude), exp(mul(c(parameters[0] ?? 0), x())), oscillation), c(parameters[4] ?? 0)]);
+  };
   return bestStarts(data, [[-0.2, 1, 0, 4, 0], [0.2, 1, 0, 6, 0]], residual, expression, "damped-sinusoid");
 }

@@ -37,5 +37,14 @@ describe("worker request replacement", () => {
     client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => received.push(response));
     worker?.fail();
     expect(received[0]).toMatchObject({ type: "invalid", reason: expect.stringMatching(/worker/i) });
+    expect(worker?.terminated).toBe(true);
+  });
+
+  it("terminates a worker after a terminal response", () => {
+    let worker: FakeWorker | undefined;
+    const client = new SolverWorkerClient(() => { worker = new FakeWorker(); return worker; });
+    client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, () => undefined);
+    worker?.send({ type: "done", id: 1, result: {} as never });
+    expect(worker?.terminated).toBe(true);
   });
 });

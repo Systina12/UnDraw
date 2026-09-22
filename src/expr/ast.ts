@@ -40,7 +40,7 @@ function safeNumber(value: number): number | null {
 
 export function evaluateExpr(expression: Expr, input: number, params: readonly number[] = []): number | null {
   switch (expression.kind) {
-    case "x": return input;
+    case "x": return safeNumber(input);
     case "param": return safeNumber(params[expression.index] ?? NaN);
     case "const": return safeNumber(constantValue(expression.value));
     case "add": {
@@ -105,17 +105,25 @@ function constantLatex(constant: Constant): string {
     case "rational": return constant.q === 1 ? String(constant.p) : `\\frac{${constant.p}}{${constant.q}}`;
     case "piMultiple": {
       if (constant.p === 0) return "0";
-      const numerator = constant.p === 1 ? "" : String(constant.p);
-      return constant.q === 1 ? `${numerator}\\pi` : `\\frac{${numerator}\\pi}{${constant.q}}`;
+      const sign = constant.p < 0 ? "-" : "";
+      const magnitude = Math.abs(constant.p);
+      const numerator = magnitude === 1 ? "" : String(magnitude);
+      return constant.q === 1 ? `${sign}${numerator}\\pi` : `\\frac{${sign}${numerator}\\pi}{${constant.q}}`;
     }
     case "eMultiple": {
-      const numerator = constant.p === 1 ? "" : String(constant.p);
-      return constant.q === 1 ? `${numerator}e` : `\\frac{${numerator}e}{${constant.q}}`;
+      if (constant.p === 0) return "0";
+      const sign = constant.p < 0 ? "-" : "";
+      const magnitude = Math.abs(constant.p);
+      const numerator = magnitude === 1 ? "" : String(magnitude);
+      return constant.q === 1 ? `${sign}${numerator}e` : `\\frac{${sign}${numerator}e}{${constant.q}}`;
     }
     case "sqrtMultiple": {
-      const numerator = constant.p === 1 ? "" : String(constant.p);
+      if (constant.p === 0) return "0";
+      const sign = constant.p < 0 ? "-" : "";
+      const magnitude = Math.abs(constant.p);
+      const numerator = magnitude === 1 ? "" : String(magnitude);
       const root = `\\sqrt{${constant.n}}`;
-      return constant.q === 1 ? `${numerator}${root}` : `\\frac{${numerator}${root}}{${constant.q}}`;
+      return constant.q === 1 ? `${sign}${numerator}${root}` : `\\frac{${sign}${numerator}${root}}{${constant.q}}`;
     }
   }
 }
@@ -125,10 +133,52 @@ function constantPlain(constant: Constant): string {
     case "float":
     case "integer": return numberText(constant.value);
     case "rational": return constant.q === 1 ? String(constant.p) : `${constant.p}/${constant.q}`;
-    case "piMultiple": return constant.q === 1 ? `${constant.p === 1 ? "" : constant.p}π` : `${constant.p}π/${constant.q}`;
-    case "eMultiple": return constant.q === 1 ? `${constant.p === 1 ? "" : constant.p}e` : `${constant.p}e/${constant.q}`;
-    case "sqrtMultiple": return constant.q === 1 ? `${constant.p === 1 ? "" : constant.p}√${constant.n}` : `${constant.p}√${constant.n}/${constant.q}`;
+    case "piMultiple": {
+      if (constant.p === 0) return "0";
+      const sign = constant.p < 0 ? "-" : "";
+      const magnitude = Math.abs(constant.p);
+      return constant.q === 1 ? `${sign}${magnitude === 1 ? "" : magnitude}π` : `${sign}${magnitude === 1 ? "" : magnitude}π/${constant.q}`;
+    }
+    case "eMultiple": {
+      if (constant.p === 0) return "0";
+      const sign = constant.p < 0 ? "-" : "";
+      const magnitude = Math.abs(constant.p);
+      return constant.q === 1 ? `${sign}${magnitude === 1 ? "" : magnitude}e` : `${sign}${magnitude === 1 ? "" : magnitude}e/${constant.q}`;
+    }
+    case "sqrtMultiple": {
+      if (constant.p === 0) return "0";
+      const sign = constant.p < 0 ? "-" : "";
+      const magnitude = Math.abs(constant.p);
+      return constant.q === 1 ? `${sign}${magnitude === 1 ? "" : magnitude}√${constant.n}` : `${sign}${magnitude === 1 ? "" : magnitude}√${constant.n}/${constant.q}`;
+    }
   }
+}
+
+function negateConstant(constant: Constant): Constant {
+  switch (constant.kind) {
+    case "float": return { kind: "float", value: -constant.value };
+    case "integer": return { kind: "integer", value: -constant.value };
+    case "rational": return { kind: "rational", p: -constant.p, q: constant.q };
+    case "piMultiple": return { kind: "piMultiple", p: -constant.p, q: constant.q };
+    case "eMultiple": return { kind: "eMultiple", p: -constant.p, q: constant.q };
+    case "sqrtMultiple": return { kind: "sqrtMultiple", p: -constant.p, q: constant.q, n: constant.n };
+  }
+}
+
+function positiveTerm(expression: Expr): Expr | null {
+  if (expression.kind === "const" && constantValue(expression.value) < -1e-12) return c(negateConstant(expression.value));
+  if (expression.kind !== "mul") return null;
+  const numericFactors = expression.args
+    .map((arg, index) => ({ arg, index, value: arg.kind === "const" ? constantValue(arg.value) : null }))
+    .filter((item): item is { arg: Extract<Expr, { kind: "const" }>; index: number; value: number } => item.value !== null);
+  const product = numericFactors.reduce((total, item) => total * item.value, 1);
+  if (product >= -1e-12) return null;
+  const signIndex = numericFactors.find((item) => item.value < -1e-12)?.index;
+  if (signIndex === undefined) return null;
+  return canonicalize({
+    kind: "mul",
+    args: expression.args.map((arg, index) => index === signIndex && arg.kind === "const" ? c(negateConstant(arg.value)) : arg),
+  });
 }
 
 function precedence(expression: Expr): number {
@@ -139,16 +189,22 @@ function precedence(expression: Expr): number {
 }
 
 function render(expression: Expr, latex: boolean, parentPrecedence = 0, variable = "x"): string {
-  const child = (value: Expr, parent: number) => {
-    const rendered = render(value, latex, parent, variable);
-    return precedence(value) < parent ? (latex ? `\\left(${rendered}\\right)` : `(${rendered})`) : rendered;
-  };
+  const child = (value: Expr, parent: number) => render(value, latex, parent, variable);
   let result: string;
   switch (expression.kind) {
     case "x": result = variable; break;
     case "param": result = latex ? `\\theta_${expression.index + 1}` : `θ${expression.index + 1}`; break;
     case "const": result = latex ? constantLatex(expression.value) : constantPlain(expression.value); break;
-    case "add": result = expression.args.map((arg) => render(arg, latex, 1, variable)).join(latex ? " + " : " + "); break;
+    case "add": {
+      result = expression.args.map((arg, index) => {
+        const positive = positiveTerm(arg);
+        const negative = positive !== null;
+        const term = render(positive ?? arg, latex, 1, variable);
+        if (index === 0) return negative ? `-${term}` : term;
+        return negative ? ` - ${term}` : ` + ${term}`;
+      }).join("");
+      break;
+    }
     case "mul": result = expression.args.map((arg) => child(arg, 2)).join(latex ? " \\, " : "*"); break;
     case "div": result = latex ? `\\frac{${render(expression.a, true, 0, variable)}}{${render(expression.b, true, 0, variable)}}` : `${child(expression.a, 2)}/${child(expression.b, 2)}`; break;
     case "pow": result = latex ? `${child(expression.base, 3)}^{${render(expression.exponent, true, 0, variable)}}` : `${child(expression.base, 3)}^${child(expression.exponent, 3)}`; break;

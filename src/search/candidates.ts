@@ -126,7 +126,10 @@ export function selectPresentationCandidates(frontier: readonly Candidate[], noi
   const minimum = sortedByError[0]!;
   const allowed = 2.5 * Math.max(noise, minimum.error);
   const simple = [...frontier].filter((candidate) => candidate.error <= allowed).sort((a, b) => a.complexity - b.complexity || a.score - b.score)[0] ?? minimum;
-  const balanced = [...frontier].sort((a, b) => a.score - b.score)[0] ?? minimum;
+  const scoreWinner = [...frontier].sort((a, b) => a.score - b.score)[0] ?? minimum;
+  const balanced = [...frontier]
+    .filter((candidate) => candidate.error <= scoreWinner.error + Math.max(0.5 * noise, 0.002))
+    .sort((a, b) => a.complexity - b.complexity || a.score - b.score)[0] ?? scoreWinner;
   const variance = mean(observedY.map((value) => (value - mean(observedY)) ** 2));
   const cap = Math.max(simple.complexity + 8, 12);
   const accurate = [...frontier].filter((candidate) => candidate.complexity <= cap).sort((a, b) => a.error - b.error || a.complexity - b.complexity)[0] ?? (variance >= 0 ? minimum : balanced);

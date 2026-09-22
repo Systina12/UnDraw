@@ -15,12 +15,16 @@ function finitePoints(points: readonly Point[]): Point[] {
 }
 
 function bucketValues(points: readonly Point[], bucketCount: number): { values: number[][]; xmin: number; xmax: number; yrange: number } {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  const xmin = Math.min(...xs);
-  const xmax = Math.max(...xs);
-  const ymin = Math.min(...ys);
-  const ymax = Math.max(...ys);
+  let xmin = Number.POSITIVE_INFINITY;
+  let xmax = Number.NEGATIVE_INFINITY;
+  let ymin = Number.POSITIVE_INFINITY;
+  let ymax = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    xmin = Math.min(xmin, point.x);
+    xmax = Math.max(xmax, point.x);
+    ymin = Math.min(ymin, point.y);
+    ymax = Math.max(ymax, point.y);
+  }
   const width = Math.max(1e-12, xmax - xmin);
   const values = Array.from({ length: bucketCount }, () => [] as number[]);
   for (const point of points) {
@@ -39,7 +43,16 @@ export function validateFunctionStroke(points: readonly Point[], bucketCount = 1
   const likelyBacktracking = backtrackRatio > 0.12;
   const { values, yrange } = bucketValues(validPoints, Math.max(8, bucketCount));
   const bucketMedians = values.map((bucket) => bucket.length > 0 ? median(bucket) : undefined);
-  const spreads = values.map((bucket) => bucket.length > 0 ? Math.max(...bucket) - Math.min(...bucket) : 0);
+  const spreads = values.map((bucket) => {
+    if (bucket.length === 0) return 0;
+    let minimum = Number.POSITIVE_INFINITY;
+    let maximum = Number.NEGATIVE_INFINITY;
+    for (const value of bucket) {
+      minimum = Math.min(minimum, value);
+      maximum = Math.max(maximum, value);
+    }
+    return maximum - minimum;
+  });
   const activeSpreads = spreads.filter((_, index) => (values[index]?.length ?? 0) > 0);
   const effectiveBuckets = activeSpreads.length;
   if (effectiveBuckets < 4) return { valid: false, reason: "The curve needs a wider x-domain.", spreadRatio: 1, effectiveBuckets };
@@ -143,7 +156,13 @@ export function preprocessCurve(points: readonly Point[], options: PreprocessOpt
   const medianY = medianFilter(y, 2);
   const smoothY = savitzkyGolay(medianY);
   const residuals = y.map((value, index) => value - (smoothY[index] ?? value));
-  const curveRange = Math.max(...y) - Math.min(...y);
+  let minimumY = Number.POSITIVE_INFINITY;
+  let maximumY = Number.NEGATIVE_INFINITY;
+  for (const value of y) {
+    minimumY = Math.min(minimumY, value);
+    maximumY = Math.max(maximumY, value);
+  }
+  const curveRange = maximumY - minimumY;
   const noise = Math.max(1e-5, 1.4826 * mad(residuals), 0.002 * Math.max(1, curveRange));
   const normalized = normalize(x, y);
   const raw = x.map((value, index) => ({ x: value, y: y[index] ?? 0, t: index }));
@@ -182,12 +201,11 @@ export function resampleParametric(points: readonly Point[], samples = 256): { t
   const t = Array.from({ length: samples }, (_, index) => index / (samples - 1));
   const x: number[] = [];
   const y: number[] = [];
+  let right = 1;
   for (const normalized of t) {
     const distance = normalized * total;
-    let right = cumulative.findIndex((value) => value >= distance);
-    if (right < 1) right = 1;
-    if (right >= source.length) right = source.length - 1;
-    const left = right - 1;
+    while (right < source.length - 1 && (cumulative[right] ?? 0) < distance) right += 1;
+    const left = Math.max(0, right - 1);
     const ratio = (distance - (cumulative[left] ?? 0)) / Math.max(1e-12, (cumulative[right] ?? 0) - (cumulative[left] ?? 0));
     const p0 = source[left]!;
     const p1 = source[right]!;

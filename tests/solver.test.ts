@@ -15,7 +15,7 @@ describe("curve solver", () => {
     expect(result.mode).toBe("function");
     if (result.mode !== "function") return;
     expect(result.best.plain).toMatch(/sin/);
-    expect(result.best.plain).toMatch(/π|3\.14/);
+    expect(result.best.plain).toContain("π");
     expect(result.best.plain).toMatch(/2/);
     expect(result.simple).toBeDefined();
     expect(result.balanced).toBeDefined();
@@ -34,4 +34,12 @@ describe("curve solver", () => {
     expect(result.parametric?.x.plain).toMatch(/cos|sin/);
     expect(result.parametric?.y.plain).toMatch(/sin|cos/);
   }, 15_000);
+
+  it("keeps a specialized exponential model when it reaches the noise floor", () => {
+    const result = solveCurve(stroke((x) => Math.exp(0.7 * x)), { timeBudgetMs: 1500 });
+    expect(result.mode).toBe("function");
+    if (result.mode !== "function") return;
+    expect(result.best.modelFamily).toBe("exponential");
+    expect(result.best.plain).toMatch(/exp|e\^/);
+  });
 });

@@ -9,6 +9,9 @@ export const DEFAULT_VIEWPORT: Viewport = {
   height: 600,
 };
 
+export const MIN_WORLD_SPAN = 1e-3;
+export const MAX_WORLD_SPAN = 1e3;
+
 export function screenToWorld(point: XY, viewport: Viewport): XY {
   return {
     x: viewport.xmin + (point.x / viewport.width) * (viewport.xmax - viewport.xmin),
@@ -36,10 +39,10 @@ export function panViewport(viewport: Viewport, dxPixels: number, dyPixels: numb
 }
 
 export function zoomViewport(viewport: Viewport, factor: number, anchor: XY): Viewport {
-  const safeFactor = Math.min(8, Math.max(0.125, factor));
+  const safeFactor = Number.isFinite(factor) && factor > 0 ? Math.min(8, Math.max(0.125, factor)) : 1;
   const anchorWorld = screenToWorld(anchor, viewport);
-  const width = (viewport.xmax - viewport.xmin) / safeFactor;
-  const height = (viewport.ymax - viewport.ymin) / safeFactor;
+  const width = Math.min(MAX_WORLD_SPAN, Math.max(MIN_WORLD_SPAN, (viewport.xmax - viewport.xmin) / safeFactor));
+  const height = Math.min(MAX_WORLD_SPAN, Math.max(MIN_WORLD_SPAN, (viewport.ymax - viewport.ymin) / safeFactor));
   const xRatio = anchor.x / viewport.width;
   const yRatio = anchor.y / viewport.height;
   return {

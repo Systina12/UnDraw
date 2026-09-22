@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "draw-inverse-";
-const CACHE = `${CACHE_PREFIX}v2`;
+const CACHE = `${CACHE_PREFIX}v3`;
 
 function appRoot() {
   return new URL("./", self.registration.scope);
