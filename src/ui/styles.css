@@ -1,0 +1,15 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #162838;
+  background: #f7f8fb;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+.app-shell { max-width: 1120px; margin: auto; padding: 1.25rem; }
+
+h1 { margin: 0; font-size: 1.6rem; }
+
+canvas { display: block; width: 100%; height: min(68vh, 680px); background: white; border: 1px solid #ccd4dd; border-radius: 12px; }
