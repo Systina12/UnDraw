@@ -8,10 +8,12 @@ export function chebyshevToPower(coefficients:ArrayLike<number>):number[] {
   for(let n=0;n<coefficients.length;n++){
     const basis=n===0?prev:n===1?current:current;
     for(let j=0;j<basis.length;j++)result[j]=(result[j]??0)+coefficients[n]*basis[j];
-    const next=Array(Math.max(current.length+1,prev.length)).fill(0) as number[];
-    for(let j=0;j<current.length;j++)next[j+1]+=2*current[j];
-    for(let j=0;j<prev.length;j++)next[j]-=prev[j];
-    prev=current;current=next;
+    if(n>=1){
+      const next=Array(Math.max(current.length+1,prev.length)).fill(0) as number[];
+      for(let j=0;j<current.length;j++)next[j+1]+=2*current[j];
+      for(let j=0;j<prev.length;j++)next[j]-=prev[j];
+      prev=current;current=next;
+    }
   }
   return result;
 }
