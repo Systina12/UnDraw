@@ -69,6 +69,29 @@ export function mountApplication(root: HTMLElement): void {
     setModeButtonsEnabled(false);
     status.textContent = "Analyzing stroke…";
     client.solve(points, plot.getViewport(), { timeBudgetMs: 1500 }, (response) => handleResponse(response));
+  }, () => {
+    client.cancel();
+    result = null;
+    selected = null;
+    copyLatexText = "";
+    copyPlainText = "";
+    setActiveMode("balanced");
+    setModeButtonsEnabled(false);
+    status.textContent = "Drawing…";
+    formula.textContent = "Release to analyze";
+    plain.textContent = "";
+    quality.textContent = "";
+    meta.textContent = "";
+    diagnostics.textContent = "";
+  }, () => {
+    client.cancel();
+    resetPresentation();
+    status.textContent = "Ready to draw";
+    formula.textContent = "Draw a curve to begin";
+    plain.textContent = "";
+    quality.textContent = "";
+    meta.textContent = "";
+    diagnostics.textContent = "";
   });
 
   function setModeButtonsEnabled(enabled: boolean): void {
@@ -154,6 +177,32 @@ export function mountApplication(root: HTMLElement): void {
   root.querySelector<HTMLButtonElement>('[data-action="clear"]')?.addEventListener("click", () => { client.cancel(); resetPresentation(); plot.clear(); status.textContent = "Ready to draw"; formula.textContent = "Draw a curve to begin"; plain.textContent = ""; quality.textContent = ""; meta.textContent = ""; diagnostics.textContent = ""; });
   root.querySelector<HTMLButtonElement>('[data-action="undo"]')?.addEventListener("click", () => { client.cancel(); resetPresentation(); plot.undo(); status.textContent = "Ready to draw"; formula.textContent = "Draw a curve to begin"; plain.textContent = ""; quality.textContent = ""; meta.textContent = ""; diagnostics.textContent = ""; });
   root.querySelector<HTMLButtonElement>('[data-action="reset"]')?.addEventListener("click", () => plot.resetView());
-  root.querySelector<HTMLButtonElement>('[data-action="copy-latex"]')?.addEventListener("click", () => { if (copyLatexText) void navigator.clipboard?.writeText(copyLatexText); });
-  root.querySelector<HTMLButtonElement>('[data-action="copy-plain"]')?.addEventListener("click", () => { if (copyPlainText) void navigator.clipboard?.writeText(copyPlainText); });
+  root.querySelector<HTMLButtonElement>('[data-action="copy-latex"]')?.addEventListener("click", () => {
+    if (copyLatexText) void copyText(copyLatexText);
+  });
+  root.querySelector<HTMLButtonElement>('[data-action="copy-plain"]')?.addEventListener("click", () => {
+    if (copyPlainText) void copyText(copyPlainText);
+  });
+}
+
+async function copyText(value: string): Promise<void> {
+  let textarea: HTMLTextAreaElement | null = null;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+  } catch {
+    // Clipboard permissions vary across browsers; the formula remains visible for manual copying.
+  } finally {
+    textarea?.remove();
+  }
 }

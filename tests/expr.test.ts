@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { c, div, exprToLatex, exprToPlain, evaluateExpr, x, add, mul, pow, sin } from "../src/expr/ast";
+import { c, div, exprToLatex, exprToPlain, evaluateExpr, x, add, mul, pow, sin, cos } from "../src/expr/ast";
 import { simplify } from "../src/expr/simplify";
 
 describe("expression AST", () => {
@@ -41,6 +41,13 @@ describe("expression AST", () => {
   it("renders fraction grouping only once", () => {
     const expression = div(c(1), add([c(2), x()]));
     expect(exprToPlain(expression)).toBe("1/(2 + x)");
+  });
+
+  it("normalizes fitted trigonometric phases near a human-friendly angle", () => {
+    const expression = simplify(mul(c(-3), cos(add([c(-3.15662), mul(c(6.31325), x())]))));
+    expect(exprToPlain(expression)).toContain("cos");
+    expect(exprToPlain(expression)).toMatch(/3.*cos/);
+    expect(evaluateExpr(expression, 0.2)).toBeCloseTo(3 * Math.cos(6.31325 * 0.2), 10);
   });
 
   it("rejects invalid domains without throwing", () => {

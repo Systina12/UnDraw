@@ -1,6 +1,6 @@
 import type { Candidate, CandidateResult, CurveData, InvalidSolveResult, Point, SolveContext, SolveOutcome, SolveResult, SolverOptions } from "./types";
 import { analyzeFeatures } from "./features";
-import { preprocessCurve, resampleParametric } from "./preprocess";
+import { MAX_BUCKETS, MAX_RESAMPLE_SAMPLES, MIN_BUCKETS, MIN_RESAMPLE_SAMPLES, preprocessCurve, resampleParametric } from "./preprocess";
 import { beautifyCandidate } from "../beautify/beautify";
 import { fitAbsolute } from "../models/absolute";
 import { fitDampedSinusoid, fitGaussian, fitLogistic, fitTanh } from "../models/nonlinear";
@@ -24,8 +24,41 @@ const DEFAULTS: Required<Omit<SolverOptions, "progress" | "now">> = {
   maxParams: 8,
 };
 
+const LIMITS = {
+  samples: { minimum: MIN_RESAMPLE_SAMPLES, maximum: MAX_RESAMPLE_SAMPLES },
+  buckets: { minimum: MIN_BUCKETS, maximum: MAX_BUCKETS },
+  maxComplexity: { minimum: 0, maximum: 12 },
+  timeBudgetMs: { minimum: 1, maximum: 10_000 },
+  maxCandidates: { minimum: 16, maximum: 1_000 },
+  maxParams: { minimum: 1, maximum: 8 },
+} as const;
+
 function systemNow(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function boundedNumber(value: number, fallback: number, minimum: number, maximum: number): number {
+  return Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback;
+}
+
+function boundedInteger(value: number, fallback: number, minimum: number, maximum: number): number {
+  return Math.floor(boundedNumber(value, fallback, minimum, maximum));
+}
+
+function resolveOptions(options: Partial<SolverOptions>): SolverOptions {
+  const merged = { ...DEFAULTS, ...options };
+  const resolved: SolverOptions = {
+    samples: boundedInteger(merged.samples, DEFAULTS.samples, LIMITS.samples.minimum, LIMITS.samples.maximum),
+    buckets: boundedInteger(merged.buckets, DEFAULTS.buckets, LIMITS.buckets.minimum, LIMITS.buckets.maximum),
+    maxComplexity: boundedInteger(merged.maxComplexity, DEFAULTS.maxComplexity, LIMITS.maxComplexity.minimum, LIMITS.maxComplexity.maximum),
+    timeBudgetMs: boundedNumber(merged.timeBudgetMs, DEFAULTS.timeBudgetMs, LIMITS.timeBudgetMs.minimum, LIMITS.timeBudgetMs.maximum),
+    parametricFallback: merged.parametricFallback !== false,
+    maxCandidates: boundedInteger(merged.maxCandidates, DEFAULTS.maxCandidates, LIMITS.maxCandidates.minimum, LIMITS.maxCandidates.maximum),
+    maxParams: boundedInteger(merged.maxParams, DEFAULTS.maxParams, LIMITS.maxParams.minimum, LIMITS.maxParams.maximum),
+    now: typeof merged.now === "function" ? merged.now : systemNow,
+  };
+  if (typeof merged.progress === "function") resolved.progress = merged.progress;
+  return resolved;
 }
 
 function makeContext(options: SolverOptions, start: number): SolveContext {
@@ -57,12 +90,13 @@ function isBeautifyFriendly(candidate: Candidate): boolean {
 }
 
 function solveFunction(points: readonly Point[], options: SolverOptions, allowParametric: boolean, preferPeriodic = false): SolveOutcome {
-  const now = options.now ?? systemNow;
+  const resolvedOptions = resolveOptions(options);
+  const now = resolvedOptions.now ?? systemNow;
   const start = now();
-  const context = makeContext(options, start);
+  const context = makeContext(resolvedOptions, start);
   const preprocessed = preprocessCurve(points, { samples: context.options.samples, buckets: context.options.buckets });
   if (preprocessed.kind !== "ok") {
-    if (allowParametric && context.options.parametricFallback) return solveParametric(points, options, start, now);
+    if (allowParametric && context.options.parametricFallback) return solveParametric(points, resolvedOptions, start, now);
     return invalid(preprocessed.reason, start, now);
   }
   const data = preprocessed.data;
@@ -180,19 +214,20 @@ function fitSinusoidSafe(data: CurveData): Candidate[] {
 }
 
 function solveParametric(points: readonly Point[], options: SolverOptions, start: number, now: () => number): SolveOutcome {
-  const sampled = resampleParametric(points, options.samples ?? DEFAULTS.samples);
+  const resolvedOptions = resolveOptions(options);
+  const sampled = resampleParametric(points, resolvedOptions.samples);
   const xPoints = sampled.t.map((t, index) => ({ x: t, y: sampled.x[index] ?? 0, t: index }));
   const yPoints = sampled.t.map((t, index) => ({ x: t, y: sampled.y[index] ?? 0, t: index }));
-  const totalBudget = Math.max(1, options.timeBudgetMs ?? DEFAULTS.timeBudgetMs);
+  const totalBudget = resolvedOptions.timeBudgetMs;
   const xBudget = Math.max(1, Math.floor(totalBudget / 2));
   const childOptions: SolverOptions = {
-    samples: options.samples ?? DEFAULTS.samples,
-    buckets: options.buckets ?? DEFAULTS.buckets,
-    maxComplexity: options.maxComplexity ?? DEFAULTS.maxComplexity,
+    samples: resolvedOptions.samples,
+    buckets: resolvedOptions.buckets,
+    maxComplexity: resolvedOptions.maxComplexity,
     timeBudgetMs: xBudget,
     parametricFallback: false,
-    maxCandidates: options.maxCandidates ?? DEFAULTS.maxCandidates,
-    maxParams: options.maxParams ?? DEFAULTS.maxParams,
+    maxCandidates: resolvedOptions.maxCandidates,
+    maxParams: resolvedOptions.maxParams,
     now,
   };
   const xResult = solveFunction(xPoints, childOptions, false, true);
@@ -220,6 +255,5 @@ function solveParametric(points: readonly Point[], options: SolverOptions, start
 }
 
 export function solveCurve(points: readonly Point[], options: Partial<SolverOptions> = {}): SolveOutcome {
-  const merged: SolverOptions = { ...DEFAULTS, ...options };
-  return solveFunction(points, merged, true);
+  return solveFunction(points, resolveOptions(options), true);
 }

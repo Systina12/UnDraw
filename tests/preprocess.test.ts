@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { preprocessCurve, validateFunctionStroke } from "../src/core/preprocess";
+import { MAX_INPUT_POINTS, MAX_RESAMPLE_SAMPLES, preprocessCurve, validateFunctionStroke, resampleParametric } from "../src/core/preprocess";
 import type { Point } from "../src/core/types";
 
 function stroke(fn: (x: number) => number, count = 80): Point[] {
@@ -30,5 +30,29 @@ describe("curve preprocessing", () => {
     const validation = validateFunctionStroke(circle, 64);
     expect(validation.valid).toBe(false);
     expect(validation.reason).toMatch(/single-valued/i);
+  });
+
+  it("clamps pathological sampling requests and input sizes", () => {
+    const points = Array.from({ length: MAX_INPUT_POINTS + 100 }, (_, index) => {
+      const x = -2 + (4 * index) / (MAX_INPUT_POINTS + 99);
+      return { x, y: x * x, t: index };
+    });
+    const result = preprocessCurve(points, { samples: 1e9, buckets: 1e9 });
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.data.sourcePoints).toHaveLength(MAX_INPUT_POINTS);
+    expect(result.data.x).toHaveLength(MAX_RESAMPLE_SAMPLES);
+    expect(resampleParametric(points.slice(0, 8), 1).t).toHaveLength(16);
+  });
+
+  it("keeps malformed and overflow-prone point payloads from escaping preprocessing", () => {
+    const malformed = preprocessCurve([null, { x: 0, y: 0, t: 0 }] as unknown as Point[]);
+    expect(malformed.kind).toBe("invalid");
+    const sampled = resampleParametric([
+      { x: -Number.MAX_VALUE, y: 0, t: 0 },
+      { x: Number.MAX_VALUE, y: 1, t: 1 },
+    ]);
+    expect(sampled.x.every(Number.isFinite)).toBe(true);
+    expect(sampled.y.every(Number.isFinite)).toBe(true);
   });
 });

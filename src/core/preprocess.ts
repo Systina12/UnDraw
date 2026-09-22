@@ -6,12 +6,25 @@ export interface PreprocessOptions {
   buckets?: number;
 }
 
+export const MIN_RESAMPLE_SAMPLES = 16;
+export const MAX_RESAMPLE_SAMPLES = 1024;
+export const MIN_BUCKETS = 8;
+export const MAX_BUCKETS = 512;
+export const MAX_INPUT_POINTS = 8192;
+
 export type PreprocessResult =
   | { kind: "ok"; data: CurveData; validation: ValidationResult }
   | { kind: "invalid"; reason: string; validation: ValidationResult };
 
+function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
+  return Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, Math.floor(value!))) : fallback;
+}
+
 function finitePoints(points: readonly Point[]): Point[] {
-  return points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.t));
+  const source = Array.isArray(points) ? points : [];
+  const valid = source.filter((point): point is Point => typeof point === "object" && point !== null && Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.t));
+  if (valid.length <= MAX_INPUT_POINTS) return valid;
+  return Array.from({ length: MAX_INPUT_POINTS }, (_, index) => valid[Math.round((index * (valid.length - 1)) / (MAX_INPUT_POINTS - 1))]!);
 }
 
 function bucketValues(points: readonly Point[], bucketCount: number): { values: number[][]; xmin: number; xmax: number; yrange: number } {
@@ -41,7 +54,8 @@ export function validateFunctionStroke(points: readonly Point[], bucketCount = 1
   const directXTravel = Math.abs((validPoints.at(-1)?.x ?? 0) - (validPoints[0]?.x ?? 0));
   const backtrackRatio = (totalXTravel - directXTravel) / Math.max(1e-9, totalXTravel);
   const likelyBacktracking = backtrackRatio > 0.12;
-  const { values, yrange } = bucketValues(validPoints, Math.max(8, bucketCount));
+  const safeBucketCount = boundedInteger(bucketCount, 128, MIN_BUCKETS, MAX_BUCKETS);
+  const { values, yrange } = bucketValues(validPoints, safeBucketCount);
   const bucketMedians = values.map((bucket) => bucket.length > 0 ? median(bucket) : undefined);
   const spreads = values.map((bucket) => {
     if (bucket.length === 0) return 0;
@@ -146,8 +160,8 @@ function normalize(x: readonly number[], y: readonly number[]): { x: number[]; y
 
 export function preprocessCurve(points: readonly Point[], options: PreprocessOptions = {}): PreprocessResult {
   const sourcePoints = finitePoints(points);
-  const samples = Math.max(16, options.samples ?? 256);
-  const buckets = Math.max(8, options.buckets ?? 128);
+  const samples = boundedInteger(options.samples, 256, MIN_RESAMPLE_SAMPLES, MAX_RESAMPLE_SAMPLES);
+  const buckets = boundedInteger(options.buckets, 128, MIN_BUCKETS, MAX_BUCKETS);
   const validation = validateFunctionStroke(sourcePoints, buckets);
   if (!validation.valid) return { kind: "invalid", reason: validation.reason ?? "Invalid curve.", validation };
   const grid = bucketMedians(sourcePoints, buckets);
@@ -191,6 +205,8 @@ export function preprocessCurve(points: readonly Point[], options: PreprocessOpt
 export function resampleParametric(points: readonly Point[], samples = 256): { t: number[]; x: number[]; y: number[] } {
   const source = finitePoints(points);
   if (source.length < 2) return { t: [0, 1], x: [source[0]?.x ?? 0, source[0]?.x ?? 0], y: [source[0]?.y ?? 0, source[0]?.y ?? 0] };
+  const sampleCount = boundedInteger(samples, 256, MIN_RESAMPLE_SAMPLES, MAX_RESAMPLE_SAMPLES);
+  const t = Array.from({ length: sampleCount }, (_, index) => index / (sampleCount - 1));
   const cumulative = [0];
   for (let index = 1; index < source.length; index += 1) {
     const previous = source[index - 1]!;
@@ -198,7 +214,17 @@ export function resampleParametric(points: readonly Point[], samples = 256): { t
     cumulative.push((cumulative.at(-1) ?? 0) + Math.hypot(current.x - previous.x, current.y - previous.y));
   }
   const total = cumulative.at(-1) ?? 1;
-  const t = Array.from({ length: samples }, (_, index) => index / (samples - 1));
+  if (!Number.isFinite(total)) {
+    return {
+      t,
+      x: t.map((value) => source[Math.min(source.length - 1, Math.round(value * (source.length - 1)))]!.x),
+      y: t.map((value) => source[Math.min(source.length - 1, Math.round(value * (source.length - 1)))]!.y),
+    };
+  }
+  if (total <= 1e-12) {
+    const first = source[0]!;
+    return { t, x: t.map(() => first.x), y: t.map(() => first.y) };
+  }
   const x: number[] = [];
   const y: number[] = [];
   let right = 1;

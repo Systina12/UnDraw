@@ -47,4 +47,14 @@ describe("worker request replacement", () => {
     worker?.send({ type: "done", id: 1, result: {} as never });
     expect(worker?.terminated).toBe(true);
   });
+
+  it("turns a DataCloneError-style post failure into an invalid response", () => {
+    const received: WorkerResponse[] = [];
+    const worker = new FakeWorker();
+    worker.postMessage = () => { throw new Error("DataCloneError"); };
+    const client = new SolverWorkerClient(() => worker);
+    client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => received.push(response));
+    expect(received[0]).toMatchObject({ type: "invalid", reason: expect.stringMatching(/worker/i) });
+    expect(worker.terminated).toBe(true);
+  });
 });

@@ -289,14 +289,14 @@ export function simplify(expression: Expr): Expr {
           return simplify({ kind: "mul", args: [c(-1), { kind: "sin", arg: signed.positive }] });
         }
         const phase = splitPhase(arg);
-        if (phase && Math.abs(phase.phase) <= 0.015) return { kind: expression.kind, arg: phase.base };
-        if (phase && Math.abs(phase.phase - Math.PI / 2) <= 0.015) {
+        if (phase && Math.abs(phase.phase) <= 0.02) return { kind: expression.kind, arg: phase.base };
+        if (phase && Math.abs(phase.phase - Math.PI / 2) <= 0.02) {
           return expression.kind === "sin" ? { kind: "cos", arg: phase.base } : simplify({ kind: "mul", args: [c(-1), { kind: "sin", arg: phase.base }] });
         }
-        if (phase && Math.abs(Math.abs(phase.phase) - Math.PI) <= 0.015) {
+        if (phase && Math.abs(Math.abs(phase.phase) - Math.PI) <= 0.02) {
           return simplify({ kind: "mul", args: [c(-1), { kind: expression.kind, arg: phase.base }] });
         }
-        if (phase && Math.abs(phase.phase + Math.PI / 2) <= 0.015) {
+        if (phase && Math.abs(phase.phase + Math.PI / 2) <= 0.02) {
           return expression.kind === "sin" ? simplify({ kind: "mul", args: [c(-1), { kind: "cos", arg: phase.base }] }) : { kind: "sin", arg: phase.base };
         }
       }

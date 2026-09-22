@@ -22,9 +22,10 @@ export class SolverWorkerClient {
     const worker = this.factory();
     this.active = { id, worker };
     worker.onmessage = (event) => {
-      if (this.active?.id !== id || this.active.worker !== worker || event.data.id !== id) return;
-      onResponse(event.data);
-      if (event.data.type === "done" || event.data.type === "invalid") {
+      const response = event.data;
+      if (!response || this.active?.id !== id || this.active.worker !== worker || response.id !== id) return;
+      onResponse(response);
+      if (response.type === "done" || response.type === "invalid") {
         worker.terminate();
         this.active = null;
       }
@@ -36,7 +37,15 @@ export class SolverWorkerClient {
       this.active = null;
     };
     const { progress: _progress, now: _now, ...serializableOptions } = options;
-    worker.postMessage({ id, points: [...points], view, options: serializableOptions });
+    try {
+      worker.postMessage({ id, points: [...points], view, options: serializableOptions });
+    } catch {
+      if (this.active?.id === id && this.active.worker === worker) {
+        onResponse({ type: "invalid", id, reason: "The stroke could not be sent to the solver worker." });
+        worker.terminate();
+        this.active = null;
+      }
+    }
     return id;
   }
 

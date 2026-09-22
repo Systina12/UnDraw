@@ -2,6 +2,8 @@ import type { CandidateResult, Point, SolveResult, Viewport } from "../core/type
 import { panViewport, screenToWorld, worldToScreen, DEFAULT_VIEWPORT, zoomViewport } from "./viewport";
 
 export type StrokeHandler = (points: Point[]) => void;
+export type StrokeStartHandler = () => void;
+export type StrokeCancelHandler = () => void;
 
 export class CoordinateCanvas {
   private viewport: Viewport = { ...DEFAULT_VIEWPORT };
@@ -13,13 +15,18 @@ export class CoordinateCanvas {
   private pointerId: number | null = null;
   private lastScreen = { x: 0, y: 0 };
 
-  public constructor(private readonly canvas: HTMLCanvasElement, private readonly onStroke: StrokeHandler) {
+  public constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly onStroke: StrokeHandler,
+    private readonly onStrokeStart?: StrokeStartHandler,
+    private readonly onStrokeCancel?: StrokeCancelHandler,
+  ) {
     this.resize();
     window.addEventListener("resize", () => this.resize());
     canvas.addEventListener("pointerdown", (event) => this.pointerDown(event));
     canvas.addEventListener("pointermove", (event) => this.pointerMove(event));
     canvas.addEventListener("pointerup", (event) => this.pointerUp(event));
-    canvas.addEventListener("pointercancel", (event) => this.pointerUp(event));
+    canvas.addEventListener("pointercancel", (event) => this.pointerCancel(event));
     canvas.addEventListener("wheel", (event) => {
       event.preventDefault();
       const rect = canvas.getBoundingClientRect();
@@ -84,6 +91,7 @@ export class CoordinateCanvas {
     this.panning = event.button === 1 || event.altKey || event.shiftKey;
     this.drawing = !this.panning;
     if (this.drawing) {
+      this.onStrokeStart?.();
       const world = screenToWorld(this.lastScreen, this.viewport);
       this.rawPoints = [{ ...world, t: performance.now() }];
       this.selected = null;
@@ -112,7 +120,18 @@ export class CoordinateCanvas {
 
   private pointerUp(event: PointerEvent): void {
     if (event.pointerId !== this.pointerId) return;
-    if (this.drawing && this.rawPoints.length >= 4) this.onStroke([...this.rawPoints]);
+    if (this.drawing) this.onStroke([...this.rawPoints]);
+    this.finishPointer(event.pointerId);
+  }
+
+  private pointerCancel(event: PointerEvent): void {
+    if (event.pointerId !== this.pointerId) return;
+    this.finishPointer(event.pointerId);
+    this.onStrokeCancel?.();
+  }
+
+  private finishPointer(pointerId: number): void {
+    if (this.canvas.hasPointerCapture(pointerId)) this.canvas.releasePointerCapture(pointerId);
     this.drawing = false;
     this.panning = false;
     this.pointerId = null;

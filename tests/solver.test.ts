@@ -33,6 +33,8 @@ describe("curve solver", () => {
     if (result.mode !== "parametric") return;
     expect(result.parametric?.x.plain).toMatch(/cos|sin/);
     expect(result.parametric?.y.plain).toMatch(/sin|cos/);
+    expect(result.parametric?.x.plain).toMatch(/2π/);
+    expect(result.parametric?.y.plain).toMatch(/2π/);
   }, 15_000);
 
   it("keeps a specialized exponential model when it reaches the noise floor", () => {
