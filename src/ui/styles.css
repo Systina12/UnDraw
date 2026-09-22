@@ -12,4 +12,4 @@ body { margin: 0; }
 
 h1 { margin: 0; font-size: 1.6rem; }
 
-canvas { display: block; width: 100%; height: min(68vh, 680px); background: white; border: 1px solid #ccd4dd; border-radius: 12px; }
+canvas { display: block; width: 100%; height: min(68vh, 680px); background: white; border: 1px solid #ccd4dd; border-radius: 12px; touch-action: none; }

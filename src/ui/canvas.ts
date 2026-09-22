@@ -1,4 +1,24 @@
 import type { ViewportTransform } from './viewport';
+import type { Point } from '../core/types';
+
+export function drawStroke(ctx: CanvasRenderingContext2D, points: readonly Point[],
+  transform: ViewportTransform, dpr: number): void {
+  if (!points.length) return;
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.strokeStyle = '#d4574b';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach((point, i) => {
+    const { x, y } = transform.worldToScreen(point.x, point.y);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.restore();
+}
 
 function gridStep(span: number, pixels: number): number {
   const ideal = span * 80 / pixels;

@@ -1,5 +1,7 @@
-import { renderPlane } from './canvas';
+import { drawStroke, renderPlane } from './canvas';
 import { ViewportTransform } from './viewport';
+import { captureStroke } from './stroke';
+import type { Point } from '../core/types';
 
 export function createAppShell(root: HTMLElement): HTMLCanvasElement {
   root.innerHTML = `<main class="app-shell">
@@ -9,6 +11,8 @@ export function createAppShell(root: HTMLElement): HTMLCanvasElement {
   const canvas = root.querySelector('canvas')!;
   if (root.isConnected) {
     const view = new ViewportTransform({ xMin: -5, xMax: 5, yMin: -5, yMax: 5 }, 1, 1);
+    let stroke: Point[] = [];
+    let drawing = false;
     const draw = () => {
       const rect = canvas.getBoundingClientRect();
       const width = Math.max(1, rect.width);
@@ -18,16 +22,23 @@ export function createAppShell(root: HTMLElement): HTMLCanvasElement {
       canvas.width = Math.max(1, Math.round(width * dpr));
       canvas.height = Math.max(1, Math.round(height * dpr));
       const ctx = canvas.getContext('2d');
-      if (ctx) renderPlane(ctx, view, dpr);
+      if (ctx) {
+        renderPlane(ctx, view, dpr);
+        drawStroke(ctx, stroke, view, dpr);
+      }
     };
     if (typeof ResizeObserver === 'function') new ResizeObserver(draw).observe(canvas);
     else window.addEventListener('resize', draw);
     canvas.addEventListener('wheel', event => {
+      if (drawing) return;
       event.preventDefault();
       const rect = canvas.getBoundingClientRect();
       view.zoomAt(event.clientX - rect.left, event.clientY - rect.top, Math.exp(-event.deltaY * .001));
       draw();
     }, { passive: false });
+    captureStroke(canvas, view,
+      points => { stroke = points; drawing = false; draw(); },
+      points => { stroke = points; drawing = true; draw(); });
     draw();
   }
   return canvas;
