@@ -134,14 +134,30 @@ function solveFunction(points: readonly Point[], options: SolverOptions, allowPa
   for (const seed of beautifySeeds) {
     try { pool.add(beautifyCandidate(seed, data)); } catch { /* keep the fitted candidate */ }
   }
+  if (preferPeriodic) {
+    const periodicSeed = pool.all()
+      .filter((candidate) => /sinusoid|fourier/.test(candidate.modelFamily) && candidate.complexity <= 12)
+      .sort((a, b) => a.complexity - b.complexity || a.error - b.error)[0];
+    if (periodicSeed) {
+      try { pool.add(beautifyCandidate(periodicSeed, data)); } catch { /* keep the fitted candidate */ }
+    }
+  }
   const frontier = pool.frontier();
   const selections = selectPresentationCandidates(frontier, data.noise, data.y);
   const simple = toCandidateResult(selections.simple, data);
   const balanced = toCandidateResult(selections.balanced, data);
   const accurate = toCandidateResult(selections.accurate, data);
-  const periodicWinner = preferPeriodic
-    ? pool.all().filter((candidate) => /sinusoid|fourier/.test(candidate.modelFamily)).sort((a, b) => a.score - b.score || a.error - b.error)[0]
-    : undefined;
+  const periodicCandidates = preferPeriodic
+    ? pool.all().filter((candidate) => /sinusoid|fourier/.test(candidate.modelFamily))
+    : [];
+  const periodicError = Math.min(...periodicCandidates.map((candidate) => candidate.error));
+  const accuratePeriodic = periodicCandidates.slice().sort((a, b) => a.error - b.error || a.score - b.score)[0];
+  const simplePeriodic = periodicCandidates
+    .filter((candidate) => candidate.complexity <= 12)
+    .sort((a, b) => a.complexity - b.complexity || a.error - b.error)[0];
+  const periodicWinner = accuratePeriodic && simplePeriodic && simplePeriodic.error <= periodicError + Math.max(2.5 * data.noise, 0.025)
+    ? simplePeriodic
+    : accuratePeriodic;
   const chosen = periodicWinner ?? selections.balanced;
   const best = toCandidateResult(chosen, data);
   return {
@@ -180,9 +196,7 @@ function solveParametric(points: readonly Point[], options: SolverOptions, start
     now,
   };
   const xResult = solveFunction(xPoints, childOptions, false, true);
-  const elapsedAfterX = elapsed(start, now);
-  const yBudget = Math.max(1, Math.floor(totalBudget - elapsedAfterX));
-  const yResult = solveFunction(yPoints, { ...childOptions, timeBudgetMs: yBudget }, false, true);
+  const yResult = solveFunction(yPoints, childOptions, false, true);
   if (xResult.mode !== "function" || yResult.mode !== "function") return invalid("This curve cannot be represented as a stable function or parametric curve.", start, now);
   const noise = Math.max(xResult.noise, yResult.noise);
   return {

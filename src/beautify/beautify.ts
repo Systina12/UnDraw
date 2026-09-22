@@ -77,7 +77,7 @@ export function beautifyCandidate(candidate: Candidate, data: CurveData): Candid
     }
     beam = next.sort((a, b) => a.candidate.score - b.candidate.score).slice(0, 128);
   }
-  const tolerance = Math.max(0.5 * data.noise, 0.002);
+  const tolerance = Math.max(2 * data.noise, 0.005);
   return beam
     .map((state) => state.candidate)
     .filter((item) => item.error <= candidate.error + tolerance)
