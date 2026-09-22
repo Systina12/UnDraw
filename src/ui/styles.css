@@ -13,3 +13,10 @@ body { margin: 0; }
 h1 { margin: 0; font-size: 1.6rem; }
 
 canvas { display: block; width: 100%; height: min(68vh, 680px); background: white; border: 1px solid #ccd4dd; border-radius: 12px; touch-action: none; }
+.result { text-align: center; padding: 1.5rem; min-height: 150px; }
+[data-formula] { min-height: 42px; font-size: 1.5rem; overflow-x: auto; }
+[data-quality] { color: #4a5b6c; min-height: 1.4rem; }
+.choices { display: flex; justify-content: center; gap: .6rem; }
+button { border: 1px solid #c9d3dd; background: white; border-radius: 7px; padding: .55rem 1rem; cursor: pointer; color: #193449; }
+button[aria-pressed="true"] { background: #236aa5; color: white; border-color: #236aa5; }
+button:focus-visible { outline: 3px solid #ef8b74; outline-offset: 2px; }
