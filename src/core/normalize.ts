@@ -1,5 +1,6 @@
 import { median, percentile } from '../math/statistics';
 import type { SampledCurve } from './resample';
+import type {CurveFeatures} from './features';
 
 export interface Normalization { xc: number; xs: number; yc: number; ys: number }
 
@@ -9,7 +10,7 @@ export interface CurveData extends SampledCurve {
   smoothY: Float64Array;
   sigmaDraw: number;
   normalization: Normalization;
-  features?: unknown;
+  features?: CurveFeatures;
 }
 
 export function normalizeCurve(sampled: SampledCurve, smoothY: Float64Array, sigmaDraw: number): CurveData {

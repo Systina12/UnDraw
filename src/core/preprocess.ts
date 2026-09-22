@@ -4,6 +4,7 @@ import { resampleFunction, resampleParametric } from './resample';
 import { smoothSeries } from './smooth';
 import { normalizeCurve, type CurveData } from './normalize';
 import { mad, percentile } from '../math/statistics';
+import {extractFeatures} from './features';
 
 export interface ParametricData {
   t: Float64Array;
@@ -46,7 +47,9 @@ export function preprocess(points: readonly Point[], sampleCount = 256): Preproc
   }
   const sampled = resampleFunction(clean, sampleCount);
   const smoothY = smoothSeries(sampled.rawY);
-  return { mode: 'function', data: normalizeCurve(sampled, smoothY, drawingNoise(sampled.rawY, smoothY)) };
+  const data=normalizeCurve(sampled,smoothY,drawingNoise(sampled.rawY,smoothY));
+  data.features=extractFeatures(data);
+  return { mode: 'function', data };
 }
 
 export class InvalidCurveError extends Error {
