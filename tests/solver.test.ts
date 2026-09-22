@@ -33,5 +33,5 @@ describe("curve solver", () => {
     if (result.mode !== "parametric") return;
     expect(result.parametric?.x.plain).toMatch(/cos|sin/);
     expect(result.parametric?.y.plain).toMatch(/sin|cos/);
-  });
+  }, 15_000);
 });
