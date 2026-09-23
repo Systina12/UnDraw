@@ -13,6 +13,14 @@ import {fitTanh} from '../models/tanh';
 import {fitLogistic} from '../models/logistic';
 import {fitDampedSinusoid} from '../models/dampedSinusoid';
 
+export function* quickModelBank(data:CurveData):Iterable<CandidateDraft>{
+  for(let degree=0;degree<=4;degree++){
+    const candidate=fitPolynomial(data,degree);if(candidate)yield candidate;
+  }
+  if((data.features?.periodicity??0)>.4)yield* fitSinusoid(data);
+  if((data.features?.cusp??0)>.5)yield* fitAbsolute(data);
+}
+
 export function* fastModelBank(data:CurveData):Iterable<CandidateDraft>{
   const families=prioritizeModels(data.features??extractFeatures(data));
   for(const family of families){

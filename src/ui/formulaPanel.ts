@@ -7,7 +7,7 @@ export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='b
   const target=root.querySelector<HTMLElement>('[data-formula]');
   const quality=root.querySelector<HTMLElement>('[data-quality]');
   if(target){
-    const latex=candidate.parametric?`\\begin{aligned}${candidate.parametric.xLatex}\\\\${candidate.parametric.yLatex}\\end{aligned}`:`y=${candidate.latex}`;
+    const latex=candidate.parametric?candidate.latex:`y=${candidate.latex}`;
     katex.render(latex,target,{throwOnError:false,trust:false,output:'html'});
     target.title=`RMSE: ${candidate.rmse.toPrecision(3)} · Complexity: ${candidate.complexity} · ${candidate.modelFamily??'General'}`;
   }

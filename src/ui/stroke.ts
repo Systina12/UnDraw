@@ -25,7 +25,7 @@ export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTran
   };
 
   const down = (event: PointerEvent) => {
-    if (active !== null || event.button !== 0) return;
+    if (active !== null || event.button !== 0 || event.shiftKey) return;
     active = event.pointerId;
     points = [];
     canvas.setPointerCapture?.(event.pointerId);

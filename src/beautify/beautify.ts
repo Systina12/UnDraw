@@ -63,8 +63,11 @@ export function beautifyCandidate(candidate:Candidate,data:CurveData,width=32):C
   return [...accepted.values()].sort((a,b)=>a.score-b.score).slice(0,width);
 }
 export function beautifyPool(pool:CandidatePool):void {
-  const candidates=pool.all().filter(c=>!c.approximation&&c.freeParameterCount<=5&&
-    c.metrics.rmse<=Math.max(3*pool.data.sigmaDraw,.025*pool.data.normalization.ys))
-    .sort((a,b)=>a.score-b.score).slice(0,3);
+  const eligible=new Set(['sinusoid','Polynomial','exponential','logarithm','absolute','rational','symbolic']);
+  const best=[...pool.all()].sort((a,b)=>a.score-b.score)[0];
+  if(!best||!eligible.has(best.modelFamily))return;
+  const candidates=pool.all().filter(c=>eligible.has(c.modelFamily)&&!c.approximation&&c.freeParameterCount<=5&&
+    c.metrics.rmse<=Math.max(3*pool.data.sigmaDraw,.025*pool.data.normalization.ys)&&
+    c.score<=best.score+50).sort((a,b)=>a.score-b.score).slice(0,2);
   for(const candidate of candidates)for(const variant of beautifyCandidate(candidate,pool.data,32))pool.add(variant);
 }
