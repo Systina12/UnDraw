@@ -22,6 +22,10 @@ npm run preview
 
 The first visit requires a network connection to download the app. Once the service worker has installed, a subsequent reload can run offline. The production service worker precaches the HTML, JS, CSS, solver Worker, manifest, icon and locally bundled KaTeX fonts. The development server is not the offline app. On a new deployment the waiting service worker does not take over an already open page; close existing tabs and reopen to use the new version.
 
+## GitHub Pages
+
+Pushing `soltest` runs `.github/workflows/deploy-pages.yml`. The workflow installs locked dependencies, runs the unit and integration tests, builds the static Vite app, and publishes `dist` to GitHub Pages. Vite's relative asset paths allow the app and its Worker to load at the repository's Pages path. GitHub Pages must use **GitHub Actions** as its publishing source.
+
 ## Tests and benchmark
 
 ```sh
