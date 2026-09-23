@@ -9,6 +9,7 @@ test('after the first online visit, an offline reload still solves in the Worker
   await context.setOffline(true);
   await page.reload();
   await drawWorldCurve(page,x=>2*Math.sin(Math.PI*x));
+  await page.getByRole('button',{name:'Find functions'}).click();
   await expect(page.getByRole('button',{name:'Balanced',exact:true})).toBeVisible();
   await expect(page.getByTestId('formula')).toContainText('sin');
   await expect(page.locator('[data-plain]')).not.toBeEmpty();

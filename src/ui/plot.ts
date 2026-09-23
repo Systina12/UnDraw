@@ -1,8 +1,9 @@
 import type {CandidateResult} from '../core/types';
 import type {ViewportTransform} from './viewport';
-export function drawFittedPlot(ctx:CanvasRenderingContext2D,result:CandidateResult,view:ViewportTransform,dpr:number):void {
+export function drawFittedPlot(ctx:CanvasRenderingContext2D,result:CandidateResult,view:ViewportTransform,dpr:number,
+  color='#236aa5'):void {
   ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.strokeStyle='#236aa5';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';
   ctx.beginPath();let connected=false;
   for(let i=0;i<result.plot.x.length;i++){
     const x=result.plot.x[i],y=result.plot.y[i];

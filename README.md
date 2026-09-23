@@ -1,6 +1,6 @@
 # UnDraw · Hand-drawn Function Finder
 
-Draw a curve on a mathematical coordinate plane and see a compact expression that explains it. UnDraw evaluates points locally in a Web Worker; there is no server-side fitting, account or upload. The initial view spans `[-5,5] × [-5,5]`.
+Draw one or more curves on a mathematical coordinate plane and see compact expressions that explain them. UnDraw evaluates points locally in a Web Worker; there is no server-side fitting, account or upload. The initial view spans `[-5,5] × [-5,5]`.
 
 ## Run
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the address Vite prints. Draw one continuous stroke using mouse, pen or one finger, then release. The first candidate appears progressively while the Worker refines the result. Choose **Simple**, **Balanced** or **Accurate** to compare Pareto-frontier expressions. Use **Copy LaTeX** or **Copy expression**; Shift-drag or middle-drag pans, wheel or two-finger pinch zooms, and two fingers pan. **Reset view**, **Undo** and **Clear** are in the toolbar.
+Open the address Vite prints. Draw as many strokes as you need using mouse, pen or one finger. Releasing a stroke leaves it on the canvas; **Find functions** starts calculation when you are ready. **One per stroke** keeps every stroke independent, including parametric fallback for a non-function path. **Best fit · auto count** splits substantial x reversals, tests whether a continuous piecewise stroke is simpler as several functions, and joins pieces when one expression explains them more simply. The number of fitted functions can differ from the number of strokes. The Worker streams the first results while refining the rest. Choose **Simple**, **Balanced** or **Accurate** to compare candidates for every fitted function. **Copy LaTeX** and **Copy expression** copy all displayed formulas. Shift-drag or middle-drag pans, wheel or two-finger pinch zooms, and two fingers pan. **Reset view**, **Undo** (last stroke) and **Clear** (all strokes) are in the toolbar.
 
 To produce the installable, offline-capable app:
 
@@ -61,4 +61,4 @@ The framework-independent core entry point is `solveCurve(points, options)` in `
 
 ## First-version limits
 
-One primary continuous stroke per fit; Undo stores at most 20 snapshots. Very short strokes and severely discontinuous or singular curves can give low confidence, and parametric fallback currently fits `x(t)` and `y(t)` independently. Progressive search has a time budget, so it may prefer a stable approximation over a recognizable closed form. Synchronous solves without an explicit time budget are bounded by structural search limits. Results express the observed domain, not a claim of global mathematical identity.
+Undo stores at most 20 snapshots. Very short strokes are skipped during a multi-stroke fit; severely discontinuous or singular curves can give low confidence, and parametric fallback currently fits `x(t)` and `y(t)` independently. Automatic function counting greedily compares mergers with a noise-aware description-length score; it may select a local optimum when many traces overlap. Progressive search has a time budget, so it may prefer a stable approximation over a recognizable closed form. Synchronous solves without an explicit time budget are bounded by structural search limits. Results express the observed domain, not a claim of global mathematical identity.

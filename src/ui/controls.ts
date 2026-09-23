@@ -1,8 +1,13 @@
 import type {UiState} from './state';
 export type CopyFormat='latex'|'plain';
 export function renderCopyText(state:UiState,format:CopyFormat):string {
-  const candidate=state.result?.[state.selected];
-  return candidate?.[format]??'';
+  const groups=state.result?.groups??[];
+  return groups.map((group,i)=>{
+    const candidate=group.result[state.selected];
+    if(candidate.parametric)return candidate[format];
+    const name=groups.length===1?'y':format==='latex'?`y_{${i+1}}`:`y${i+1}`;
+    return `${name}=${candidate[format]}`;
+  }).join(format==='latex'?' \\qquad ':'\n');
 }
 export async function copyToClipboard(text:string):Promise<boolean>{
   if(!text)return false;

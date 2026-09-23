@@ -46,3 +46,11 @@ export interface SolveResult {
   quality:'excellent'|'good'|'approximation'|'low';
   diagnostics:{runtimeMs:number;candidatesGenerated:number;candidatesFitted:number;candidatesRejected:number;maxComplexityReached:number;stopReason:string};
 }
+
+export type FitMode = 'per-stroke' | 'auto';
+export interface MultiSolveResult {
+  kind: 'multi';
+  mode: FitMode;
+  groups: {strokeIndices:number[];result:SolveResult}[];
+  skipped: number[];
+}

@@ -1,11 +1,11 @@
 import {drawStroke,renderPlane} from './canvas';
 import {ViewportTransform} from './viewport';
 import {captureStroke} from './stroke';
-import type {Point} from '../core/types';
+import type {FitMode} from '../core/types';
 import {WorkerClient} from '../worker/client';
 import {drawFittedPlot} from './plot';
-import {renderFormula,type Choice} from './formulaPanel';
-import {createUiState,commitStroke,undo,clear,selectCandidate,type UiState,type UiSnapshot} from './state';
+import {renderMultiFormula,type Choice} from './formulaPanel';
+import {createUiState,appendStroke,undo,clear,selectCandidate,type UiState,type UiSnapshot} from './state';
 import {copyToClipboard,renderCopyText} from './controls';
 import {attachPanGesture} from './gestures';
 
@@ -17,7 +17,14 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     <div class="workspace"><div class="canvas-topline"><div class="legend"><span class="legend-ink"></span> Your stroke
       <span class="legend-fit"></span> Fitted function</div><span class="gesture-hint">Draw · Shift-drag to pan · Scroll to zoom</span>
       <span class="touch-hint">One finger draws · Two fingers move or zoom</span></div>
-      <canvas aria-label="Coordinate plane" aria-description="Draw one curve with a mouse or one finger. Use two fingers to move or zoom." tabindex="0"></canvas>
+      <canvas aria-label="Coordinate plane" aria-description="Draw multiple curves with a mouse or one finger. Use two fingers to move or zoom." tabindex="0"></canvas>
+      <div class="fit-controls">
+        <fieldset class="fit-modes"><legend>How many functions?</legend>
+          <label><input type="radio" name="fit-mode" value="per-stroke" checked> One per stroke</label>
+          <label><input type="radio" name="fit-mode" value="auto"> Best fit · auto count</label>
+        </fieldset>
+        <button type="button" data-action="fit" class="fit-button" disabled>Find functions</button>
+      </div>
       <div class="toolbar" role="group" aria-label="Canvas controls">
         <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>
         <button type="button" data-action="clear" title="Clear the stroke">✕ Clear</button>
@@ -25,8 +32,8 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       </div></div>
     <section class="result" aria-live="polite" aria-label="Function finder result">
       <div class="eyebrow">THE EXPRESSION</div>
-      <div data-formula data-testid="formula" class="formula">Draw a curve on the coordinate plane</div>
-      <p data-quality class="quality">The expression will appear here when you release.</p>
+      <div data-formula data-testid="formula" class="formula">Draw one or more strokes</div>
+      <p data-quality class="quality">Click Find functions when your drawing is ready.</p>
       <div class="choices" role="group" aria-label="Choose a candidate">
         <button type="button" data-choice="simple" aria-pressed="false">Simple</button>
         <button type="button" data-choice="balanced" aria-pressed="true">Balanced</button>
@@ -42,7 +49,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   const view=new ViewportTransform({xMin:-5,xMax:5,yMin:-5,yMax:5},1,1);
   const worker=new WorkerClient();
   let state:UiState=createUiState(),drawing=false,requestId=0;
-  let beforeStroke:UiSnapshot={stroke:[],result:null};
+  let beforeStroke:UiSnapshot={strokes:[],result:null};
   let beforePhase:UiState['phase']='idle';
   let touchOrigin:{id:number;x:number;y:number}|null=null;
   const quality=root.querySelector<HTMLElement>('[data-quality]')!;
@@ -57,27 +64,37 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     const ctx=canvas.getContext('2d');
     if(!ctx)return;
     renderPlane(ctx,view,dpr);
-    if(state.result)drawFittedPlot(ctx,state.result[state.selected],view,dpr);
-    drawStroke(ctx,state.stroke,view,dpr);
+    const colors=['#236aa5','#137f79','#8152aa','#b46920','#2772ac'];
+    state.result?.groups.forEach((group,i)=>drawFittedPlot(ctx,group.result[state.selected],view,dpr,colors[i%colors.length]));
+    state.strokes.forEach(stroke=>drawStroke(ctx,stroke,view,dpr));
+    drawStroke(ctx,state.draft,view,dpr);
   };
   const update=()=>{
-    if(state.result){renderFormula(root,state.result,state.selected);plain.textContent=state.result[state.selected].plain;}
+    if(state.result){
+      renderMultiFormula(root,state.result,state.selected);
+      plain.textContent=state.result.groups.map((group,i)=>
+        `${state.result!.groups.length===1?'y':`y${i+1}`} = ${group.result[state.selected].plain}`).join('  ·  ');
+    }
     else{
-      formula.textContent=state.phase==='solving'?'Looking for the simplest explanation…':'Draw a curve on the coordinate plane';
+      formula.textContent=state.phase==='solving'?'Looking for the simplest explanation…':
+        state.phase==='invalid'?'No function found':state.strokes.length?
+          `${state.strokes.length} stroke${state.strokes.length===1?'':'s'} ready`:'Draw one or more strokes';
       plain.textContent='';
-      quality.textContent=state.phase==='solving'?'Analyzing your stroke on this device…':
-        state.phase==='invalid'?'Try a longer, continuous curve.':'The expression will appear here when you release.';
+      quality.textContent=state.phase==='solving'?'Analyzing your strokes on this device…':
+        state.phase==='invalid'?'Try longer, continuous strokes.':'Click Find functions when your drawing is ready.';
     }
     root.querySelectorAll<HTMLButtonElement>('[data-action^="copy-"]').forEach(button=>button.disabled=!state.result);
+    root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.disabled=!state.strokes.length||drawing;
     draw();
   };
   const cancel=()=>{worker.cancel();requestId=0;};
-  const request=(points:Point[])=>{
-    cancel();state=commitStroke({...state,...beforeStroke},points);update();
-    requestId=worker.solve(points,view.current,{},message=>{
+  const request=()=>{
+    if(!state.strokes.length||drawing)return;
+    cancel();state={...state,result:null,phase:'solving'};update();
+    requestId=worker.solveStrokes(state.strokes,state.mode,view.current,{},message=>{
       if(message.id!==requestId)return;
       if(drawing){
-        if('result' in message&&message.result){
+        if(message.type==='batch-progress'||message.type==='batch-done'){
           beforeStroke={...beforeStroke,result:message.result};beforePhase='result';
         }
         if(message.type==='invalid')beforePhase='invalid';
@@ -86,10 +103,12 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       if(message.type==='invalid'){
         state={...state,phase:'invalid',result:null};
         update();
-        quality.textContent=message.reason==='no-finite-samples'?'This curve is not single-valued as y=f(x).':'Please try a longer continuous curve.';
-        formula.textContent='No function found';return;
+        quality.textContent='Please draw at least one longer, continuous stroke.';
+        return;
       }
-      if(message.result){state={...state,result:message.result,phase:'result'};update();}
+      if(message.type==='batch-progress'||message.type==='batch-done'){
+        state={...state,result:message.result,phase:'result'};update();
+      }
     });
   };
   if(typeof ResizeObserver==='function')new ResizeObserver(draw).observe(canvas);
@@ -100,9 +119,13 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     const rect=canvas.getBoundingClientRect();
     view.zoomAt(event.clientX-rect.left,event.clientY-rect.top,Math.exp(-event.deltaY*.001));draw();
   },{passive:false});
-  captureStroke(canvas,view,points=>{drawing=false;touchOrigin=null;request(points);},(points,source)=>{
-    if(!drawing){
-      beforeStroke={stroke:state.stroke,result:state.result};
+  captureStroke(canvas,view,points=>{
+    drawing=false;touchOrigin=null;cancel();
+    state=appendStroke({...state,...beforeStroke},points);update();
+  },(points,source)=>{
+    const starting=!drawing;
+    if(starting){
+      beforeStroke={strokes:state.strokes,result:state.result};
       beforePhase=state.phase;
       if(source.pointerType==='touch')touchOrigin={id:source.pointerId,x:source.clientX,y:source.clientY};
       else {touchOrigin=null;cancel();}
@@ -112,15 +135,20 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       Math.hypot(source.clientX-touchOrigin.x,source.clientY-touchOrigin.y)>8){
       cancel();touchOrigin=null;
     }
-    drawing=true;state={...state,stroke:points};draw();
+    drawing=true;state={...state,draft:points};if(starting)update();else draw();
   },()=>{
     drawing=false;touchOrigin=null;
-    state={...state,stroke:beforeStroke.stroke,result:beforeStroke.result,
+    state={...state,draft:[],strokes:beforeStroke.strokes,result:beforeStroke.result,
       phase:beforeStroke.result?'result':beforePhase==='solving'&&requestId?'solving':
         beforePhase==='invalid'?'invalid':'idle'};
     update();
   });
   attachPanGesture(canvas,view,draw);
+  root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.addEventListener('click',request);
+  root.querySelectorAll<HTMLInputElement>('input[name="fit-mode"]').forEach(input=>input.addEventListener('change',()=>{
+    if(!input.checked)return;
+    cancel();state={...state,mode:input.value as FitMode,result:null,phase:'idle'};update();
+  }));
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>button.addEventListener('click',()=>{
     state=selectCandidate(state,button.dataset.choice as Choice);update();
   }));

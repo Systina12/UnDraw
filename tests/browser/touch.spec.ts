@@ -8,6 +8,7 @@ test('two-finger navigation preserves a result and leaves the next touch free to
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/');
   await drawWorldCurve(page,x=>x);
+  await page.getByRole('button',{name:'Find functions'}).click();
   const formula=page.getByTestId('formula');
   await expect(formula).toContainText('x');
   const before=await page.locator('[data-plain]').textContent();
@@ -21,6 +22,7 @@ test('two-finger navigation preserves a result and leaves the next touch free to
   await touch('touchStart',[{x:box.x+40,y:centerY,id:1},{x:box.x+90,y:centerY,id:2}]);
   await touch('touchMove',[{x:box.x-15,y:centerY,id:1},{x:box.x+90,y:centerY,id:2}]);
   await touch('touchEnd',[]);
+  await page.getByRole('button',{name:'Find functions'}).click();
   await page.getByRole('button',{name:'Simple',exact:true}).click();
   await expect(formula).toContainText('x');
   await touch('touchStart',[{x:box.x+25,y:centerY-40,id:3}]);

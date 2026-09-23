@@ -1,15 +1,22 @@
 import {it,expect} from 'vitest';
-import {createUiState,commitStroke,undo,clear,selectCandidate} from '../../src/ui/state';
+import {createUiState,appendStroke,undo,clear,selectCandidate} from '../../src/ui/state';
 import {renderCopyText} from '../../src/ui/controls';
-import type {SolveResult} from '../../src/core/types';
+import katex from 'katex';
+import type {SolveResult,MultiSolveResult} from '../../src/core/types';
 
 it('keeps an undo history, clears drawings and tracks candidate selection',()=>{
-  const first=commitStroke(createUiState(),[{x:0,y:1,t:0}]);
-  const second=commitStroke(first,[{x:0,y:2,t:1}]);
-  expect(undo(second).stroke).toEqual(first.stroke);
-  expect(clear(second).stroke).toEqual([]);
-  const sample={balanced:{latex:'x'},accurate:{latex:'x^2'},simple:{latex:'1'}} as SolveResult;
+  const first=appendStroke(createUiState(),[{x:0,y:1,t:0},{x:1,y:2,t:1}]);
+  const second=appendStroke(first,[{x:0,y:2,t:2},{x:1,y:3,t:3}]);
+  expect(second.strokes).toHaveLength(2);
+  expect(undo(second).strokes).toEqual(first.strokes);
+  expect(clear(second).strokes).toEqual([]);
+  const sample:MultiSolveResult={kind:'multi',mode:'per-stroke',groups:[{strokeIndices:[0],result:{balanced:{latex:'x'},accurate:{latex:'x^2'},simple:{latex:'1'}} as SolveResult}],skipped:[]};
   const chosen=selectCandidate({...second,result:sample},'accurate');
   expect(chosen.selected).toBe('accurate');
-  expect(renderCopyText(chosen,'latex')).toBe('x^2');
+  expect(renderCopyText(chosen,'latex')).toContain('x^2');
+  const two=selectCandidate({...second,result:{...sample,groups:[...sample.groups,...sample.groups]}},'balanced');
+  const copied=renderCopyText(two,'latex');
+  expect(copied).toContain('y_{1}');
+  expect(copied).toContain('y_{2}');
+  expect(()=>katex.renderToString(copied,{throwOnError:true})).not.toThrow();
 });

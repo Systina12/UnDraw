@@ -5,13 +5,14 @@ import {makeStroke} from '../fixtures/generateStroke';
 
 it('restores the solved expression when a second finger turns a stroke into navigation',async()=>{
   const result=solveCurve(makeStroke(x=>x,{min:-2,max:2,count:16}),{maxStructuralComplexity:0});
+  const batch={kind:'multi',mode:'per-stroke',groups:[{strokeIndices:[0],result}],skipped:[]};
   const requests:unknown[]=[];
   class FakeWorker {
     onmessage:((event:MessageEvent)=>void)|null=null;
     onerror:((event:ErrorEvent)=>void)|null=null;
     postMessage(request:{id:number}):void {
       requests.push(request);
-      queueMicrotask(()=>this.onmessage?.({data:{id:request.id,type:'done',result}} as MessageEvent));
+      queueMicrotask(()=>this.onmessage?.({data:{id:request.id,type:'batch-done',result:batch}} as MessageEvent));
     }
     terminate():void {}
   }
@@ -30,6 +31,7 @@ it('restores the solved expression when a second finger turns a stroke into navi
     pointer('pointerdown',1,'mouse',30);
     pointer('pointermove',1,'mouse',70);
     pointer('pointerup',1,'mouse',70);
+    root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.click();
     await Promise.resolve();
     const formula=root.querySelector<HTMLElement>('[data-formula]')!;
     const before=formula.textContent;
@@ -57,6 +59,7 @@ it('restores the solved expression when a second finger turns a stroke into navi
 
 it('keeps the previous solve running when a new touch becomes a two-finger gesture',()=>{
   const result=solveCurve(makeStroke(x=>x,{min:-2,max:2,count:16}),{maxStructuralComplexity:0});
+  const batch={kind:'multi',mode:'per-stroke',groups:[{strokeIndices:[0],result}],skipped:[]};
   const requests:{id:number}[]=[];
   let worker:FakeWorker;
   let terminated=false;
@@ -81,6 +84,7 @@ it('keeps the previous solve running when a new touch becomes a two-finger gestu
     pointer('pointerdown',1,'mouse',30);
     pointer('pointermove',1,'mouse',70);
     pointer('pointerup',1,'mouse',70);
+    root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.click();
     expect(requests).toHaveLength(1);
     pointer('pointerdown',2,'touch',40);
     pointer('pointerdown',3,'touch',60);
@@ -88,7 +92,7 @@ it('keeps the previous solve running when a new touch becomes a two-finger gestu
     pointer('pointerup',3,'touch',60);
     expect(terminated).toBe(false);
     expect(requests).toHaveLength(1);
-    worker!.onmessage?.({data:{id:requests[0].id,type:'done',result}} as MessageEvent);
+    worker!.onmessage?.({data:{id:requests[0].id,type:'batch-done',result:batch}} as MessageEvent);
     expect(root.querySelector('[data-formula]')!.textContent).toContain('x');
   } finally {
     root.remove();
@@ -120,6 +124,7 @@ it('cancels a previous solve once one-finger motion confirms a new stroke',()=>{
     pointer('pointerdown',1,'mouse',30);
     pointer('pointermove',1,'mouse',70);
     pointer('pointerup',1,'mouse',70);
+    root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.click();
     expect(requests).toHaveLength(1);
     expect(terminated).toBe(0);
 
@@ -132,6 +137,8 @@ it('cancels a previous solve once one-finger motion confirms a new stroke',()=>{
     pointer('pointermove',2,'touch',80);
     expect(terminated).toBe(1);
     pointer('pointerup',2,'touch',80);
+    expect(requests).toHaveLength(1);
+    root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.click();
     expect(requests).toHaveLength(2);
   } finally {
     root.remove();

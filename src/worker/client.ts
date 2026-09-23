@@ -1,4 +1,4 @@
-import type {Point,Viewport,SolverOptions} from '../core/types';
+import type {Point,Viewport,SolverOptions,FitMode} from '../core/types';
 import type {WorkerResponse,WorkerRequest} from './protocol';
 
 export class WorkerClient {
@@ -17,6 +17,20 @@ export class WorkerClient {
     };
     worker.onerror=()=>{if(this.activeId===id)onMessage({type:'invalid',id,reason:'worker-failed'});};
     worker.postMessage({type:'solve',id,points,view,options} satisfies WorkerRequest);
+    return id;
+  }
+  solveStrokes(strokes:Point[][],mode:FitMode,view:Viewport,options:Partial<SolverOptions>,
+    onMessage:(message:WorkerResponse)=>void):number {
+    this.worker?.terminate();
+    const id=this.nextId++;
+    this.activeId=id;
+    const worker=this.factory();this.worker=worker;
+    worker.onmessage=event=>{
+      const message=event.data as WorkerResponse;
+      if(this.activeId===id&&message.id===id)onMessage(message);
+    };
+    worker.onerror=()=>{if(this.activeId===id)onMessage({type:'invalid',id,reason:'worker-failed'});};
+    worker.postMessage({type:'solve-strokes',id,strokes,mode,view,options} satisfies WorkerRequest);
     return id;
   }
   cancel(id=this.activeId):void {

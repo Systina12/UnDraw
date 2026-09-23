@@ -6,6 +6,6 @@ describe('app shell', () => {
     const root = document.createElement('div');
     createAppShell(root);
     expect(root.querySelector('canvas[aria-label="Coordinate plane"]')).not.toBeNull();
-    expect(root.textContent).toContain('Draw a curve');
+    expect(root.textContent).toContain('Draw one or more strokes');
   });
 });
