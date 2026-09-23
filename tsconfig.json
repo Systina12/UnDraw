@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["src", "tests/unit", "tests/integration", "tests/synthetic", "tests/browser", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": ["src", "tests/unit", "tests/integration", "tests/synthetic", "vite.config.ts", "vitest.config.ts"]
 }

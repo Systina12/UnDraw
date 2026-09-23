@@ -29,8 +29,10 @@ export function needsSymbolicSearch(pool:CandidatePool):boolean {
   if(!best)return true;
   const familiar=new Set(['Polynomial','sinusoid','exponential','logarithm','absolute','rational',
     'gaussian','tanh','logistic','damped-sinusoid']);
-  const close=best.metrics.rmse<=Math.max(2.5*pool.data.sigmaDraw,.012*pool.data.normalization.ys);
-  return best.approximation||!familiar.has(best.modelFamily)||!close;
+  // A single pen jump raises RMSE without making a familiar shape less convincing.
+  const robustScale=pool.data.normalization.ys*Math.sqrt(2*best.metrics.robustError);
+  const close=robustScale<=Math.max(3.5*pool.data.sigmaDraw,.015*pool.data.normalization.ys);
+  return best.approximation||!familiar.has(best.modelFamily)||best.complexity>12||!close;
 }
 
 export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:number,stopReason='completed'):SolveResult {

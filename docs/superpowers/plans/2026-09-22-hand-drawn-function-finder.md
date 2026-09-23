@@ -884,3 +884,11 @@ process.stdout.write(JSON.stringify({phases:timings,diagnostics,
 | 24 性能与资源 | 10、20、24 |
 | 25–26 测试与基准 | 1–24 |
 | 27–31 交付顺序、验收、风险、歧义 | 任务顺序、Review Focus 与 Final cross-check |
+
+## 实施记录（2026-09-23）
+
+- `soltest` 上按任务 1–24 实现；分支起始为空文件树，未修改默认分支。
+- `npm run typecheck`、`npm test`（84 项）、`npm run build` 和 Chromium `npm run test:e2e`（4 项，含离线重载）均通过。
+- Vite PWA precache 有 66 项，包含 HTML、Worker、KaTeX 字体、manifest 和图标；浏览器在断网重载后重新计算通过。
+- 256 个重采样点的 Node 参考基准：简单曲线首个结果约 35–85 ms；`2sin(πx)` 完整结果约 680 ms；含离群点的 `sin(x²)` 约 1563 ms，略高于桌面 1.5 s 的理想目标。具体硬件与分阶段数据见 README 和 `npm run benchmark`。
+- 页面有单指绘制、鼠标滚轮缩放、Shift/中键平移；双指缩放和平移留待后续版本。浏览器基准不能代表移动设备性能。

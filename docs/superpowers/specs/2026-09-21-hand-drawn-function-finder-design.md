@@ -1,6 +1,6 @@
 # UnDraw：Hand-drawn Function Finder 设计规格
 
-- 状态：设计完成，待实施
+- 状态：已在 `soltest` 实现；生产构建与 Chromium 端到端测试通过
 - 日期：2026-09-21
 - 目标分支：`soltest`
 - 技术栈：Vite、TypeScript、Canvas 2D、Web Worker、KaTeX、Vitest、Playwright

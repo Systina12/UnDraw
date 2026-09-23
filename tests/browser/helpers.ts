@@ -3,6 +3,7 @@ import type {Page} from '@playwright/test';
 export async function drawWorldPath(page:Page,points:readonly {x:number;y:number}[]):Promise<void> {
   if(points.length<2)throw new Error('A stroke needs at least two points');
   const canvas=page.locator('canvas[aria-label="Coordinate plane"]');
+  await canvas.scrollIntoViewIfNeeded();
   const rect=await canvas.boundingBox();
   if(!rect)throw new Error('Coordinate plane is not visible');
   const point=(p:{x:number;y:number})=>({

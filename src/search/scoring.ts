@@ -9,7 +9,9 @@ export function constantCost(constant:Constant):number {
     case 'integer':return Math.abs(constant.value)<=10?0:1;
     case 'rational':return .4+.8*Math.log2(Math.max(1,constant.q))+.08*Math.log2(Math.max(1,Math.abs(constant.p)));
     case 'piMultiple':return .2+.65*Math.log2(Math.max(1,constant.q))+.08*Math.log2(Math.max(1,Math.abs(constant.p)));
-    case 'eMultiple':case 'sqrtMultiple':return .6;
+    case 'eMultiple':return .6;
+    case 'sqrtMultiple':return .6+.8*Math.log2(Math.max(1,constant.q))+
+      .08*Math.log2(Math.max(1,Math.abs(constant.p)));
     case 'float':return Number.isInteger(constant.value)&&Math.abs(constant.value)<=10?0:2.5;
   }
 }
