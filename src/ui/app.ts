@@ -15,8 +15,9 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       <div><h1>UnDraw</h1><p>Sketch a curve. Find its function.</p></div></div>
       <span class="privacy-badge" title="All fitting runs in a browser Web Worker">● All on your device</span></header>
     <div class="workspace"><div class="canvas-topline"><div class="legend"><span class="legend-ink"></span> Your stroke
-      <span class="legend-fit"></span> Fitted function</div><span class="gesture-hint">Draw · Shift-drag to pan · Scroll to zoom</span></div>
-      <canvas aria-label="Coordinate plane" aria-description="Draw one curve with your mouse or finger" tabindex="0"></canvas>
+      <span class="legend-fit"></span> Fitted function</div><span class="gesture-hint">Draw · Shift-drag to pan · Scroll to zoom</span>
+      <span class="touch-hint">One finger draws · Two fingers move or zoom</span></div>
+      <canvas aria-label="Coordinate plane" aria-description="Draw one curve with a mouse or one finger. Use two fingers to move or zoom." tabindex="0"></canvas>
       <div class="toolbar" role="group" aria-label="Canvas controls">
         <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>
         <button type="button" data-action="clear" title="Clear the stroke">✕ Clear</button>
@@ -42,6 +43,8 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   const worker=new WorkerClient();
   let state:UiState=createUiState(),drawing=false,requestId=0;
   let beforeStroke:UiSnapshot={stroke:[],result:null};
+  let beforePhase:UiState['phase']='idle';
+  let touchOrigin:{id:number;x:number;y:number}|null=null;
   const quality=root.querySelector<HTMLElement>('[data-quality]')!;
   const formula=root.querySelector<HTMLElement>('[data-formula]')!;
   const plain=root.querySelector<HTMLElement>('[data-plain]')!;
@@ -73,6 +76,13 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     cancel();state=commitStroke({...state,...beforeStroke},points);update();
     requestId=worker.solve(points,view.current,{},message=>{
       if(message.id!==requestId)return;
+      if(drawing){
+        if('result' in message&&message.result){
+          beforeStroke={...beforeStroke,result:message.result};beforePhase='result';
+        }
+        if(message.type==='invalid')beforePhase='invalid';
+        return;
+      }
       if(message.type==='invalid'){
         state={...state,phase:'invalid',result:null};
         update();
@@ -90,14 +100,27 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     const rect=canvas.getBoundingClientRect();
     view.zoomAt(event.clientX-rect.left,event.clientY-rect.top,Math.exp(-event.deltaY*.001));draw();
   },{passive:false});
-  attachPanGesture(canvas,view,draw);
-  captureStroke(canvas,view,points=>{drawing=false;request(points);},points=>{
+  captureStroke(canvas,view,points=>{drawing=false;touchOrigin=null;request(points);},(points,source)=>{
     if(!drawing){
       beforeStroke={stroke:state.stroke,result:state.result};
-      cancel();state={...state,result:null,phase:'drawing'};
+      beforePhase=state.phase;
+      if(source.pointerType==='touch')touchOrigin={id:source.pointerId,x:source.clientX,y:source.clientY};
+      else {touchOrigin=null;cancel();}
+      state={...state,result:null,phase:'drawing'};
+    }
+    if(touchOrigin?.id===source.pointerId &&
+      Math.hypot(source.clientX-touchOrigin.x,source.clientY-touchOrigin.y)>8){
+      cancel();touchOrigin=null;
     }
     drawing=true;state={...state,stroke:points};draw();
+  },()=>{
+    drawing=false;touchOrigin=null;
+    state={...state,stroke:beforeStroke.stroke,result:beforeStroke.result,
+      phase:beforeStroke.result?'result':beforePhase==='solving'&&requestId?'solving':
+        beforePhase==='invalid'?'invalid':'idle'};
+    update();
   });
+  attachPanGesture(canvas,view,draw);
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>button.addEventListener('click',()=>{
     state=selectCandidate(state,button.dataset.choice as Choice);update();
   }));

@@ -31,7 +31,7 @@ export function* searchSymbolic(data:CurveData,context:SolveContext,onLevel:(lev
   const now=context.now??(()=>performance.now());
   const byLevel=new Map<number,TemplateExpr[]>([[0,[{kind:'var',name:'x'}]]]);
   const seen=new Set<string>();
-  let bestError=Infinity,stalled=0;
+  let bestError=context.initialBestError??Infinity,stalled=0;
   for(let level=1;level<=context.options.maxStructuralComplexity;level++){
     if(context.shouldAbort()||now()>=context.deadline)break;
     const generated=enumerateGrammar(level,byLevel,Math.max(16,context.options.semanticBeamWidth));

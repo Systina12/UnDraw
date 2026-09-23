@@ -32,7 +32,8 @@ export function needsSymbolicSearch(pool:CandidatePool):boolean {
   // A single pen jump raises RMSE without making a familiar shape less convincing.
   const robustScale=pool.data.normalization.ys*Math.sqrt(2*best.metrics.robustError);
   const close=robustScale<=Math.max(3.5*pool.data.sigmaDraw,.015*pool.data.normalization.ys);
-  return best.approximation||!familiar.has(best.modelFamily)||best.complexity>12||!close;
+  return best.approximation||!familiar.has(best.modelFamily)||
+    (best.modelFamily==='Polynomial'&&best.complexity>12)||!close;
 }
 
 export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:number,stopReason='completed'):SolveResult {
@@ -62,7 +63,9 @@ export function solveCurve(points:readonly Point[],options:Partial<SolverOptions
   beautifyPool(pool);
   let maxComplexityReached=0;
   if(settings.maxStructuralComplexity>0&&needsSymbolicSearch(pool)){
-    const context={options:settings,deadline:performance.now()+(settings.timeBudgetMs??700),shouldAbort:()=>false,now:()=>performance.now()};
+    const context={options:settings,deadline:settings.timeBudgetMs===null?Infinity:performance.now()+settings.timeBudgetMs,
+      initialBestError:Math.min(...pool.all().map(candidate=>candidate.metrics.rmse)),
+      shouldAbort:()=>false,now:()=>performance.now()};
     for(const candidate of searchSymbolic(prepared.data,context,level=>{maxComplexityReached=level;}))pool.add(candidate);
     beautifyPool(pool);
   }

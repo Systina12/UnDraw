@@ -99,7 +99,7 @@ export function fitTemplate(template:TemplateExpr,data:CurveData):CandidateDraft
     fitted=projection.coefficients;
   }else{
     let bestLoss=Infinity;
-    for(const omega of [0.5,1,2,4,6,-2])for(const phase of [0,Math.PI/2]){
+    for(const omega of [1,2,4,-2])for(const phase of [0,Math.PI/2]){
       const initial=Float64Array.from([1,0,omega,phase]);
       const result=fitLm((p,u)=>value(template,u,p),data.v,initial,{x:data.u,delta:Math.max(.01,1.5*data.sigmaDraw/data.normalization.ys),maxIterations:35});
       if(result.loss<bestLoss){bestLoss=result.loss;fitted=result.params;}

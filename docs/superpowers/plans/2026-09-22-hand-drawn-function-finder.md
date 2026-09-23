@@ -892,3 +892,11 @@ process.stdout.write(JSON.stringify({phases:timings,diagnostics,
 - Vite PWA precache 有 66 项，包含 HTML、Worker、KaTeX 字体、manifest 和图标；浏览器在断网重载后重新计算通过。
 - 256 个重采样点的 Node 参考基准：简单曲线首个结果约 35–85 ms；`2sin(πx)` 完整结果约 680 ms；含离群点的 `sin(x²)` 约 1563 ms，略高于桌面 1.5 s 的理想目标。具体硬件与分阶段数据见 README 和 `npm run benchmark`。
 - 页面有单指绘制、鼠标滚轮缩放、Shift/中键平移；双指缩放和平移留待后续版本。浏览器基准不能代表移动设备性能。
+
+## 复审修复（2026-09-23）
+
+- 修正稀疏及不均匀采样的有效域、桶中心造成的直线波纹，以及接近端点的单次笔跳污染。
+- 渐进预算从预处理开始计时，参数曲线先提供快速结果再继续拟合；同步 `null` 预算按有限结构搜索，不设隐含的墙钟截止时间。
+- 双指平移与缩放支持保留既有公式和仍在运行的求解；导航结束后可以继续单指绘制。
+- `npm test` 96 项、`npm run build` 和 Chromium `npm run test:e2e` 5 项通过，浏览器测试覆盖触控与离线重载。
+- 追加稀疏指数与高次曲线的端点回归；单指移动超过绘制阈值后及时终止旧 Worker，双指提前加入仍保留原求解。`npm test` 98 项与 `npm run build` 再次通过。

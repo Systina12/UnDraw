@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the address Vite prints. Draw one continuous stroke using mouse, pen or touch, then release. The first candidate appears progressively while the Worker refines the result. Choose **Simple**, **Balanced** or **Accurate** to compare Pareto-frontier expressions. Use **Copy LaTeX** or **Copy expression**; Shift-drag or middle-drag pans, wheel zooms, and **Reset view**, **Undo** and **Clear** are in the toolbar.
+Open the address Vite prints. Draw one continuous stroke using mouse, pen or one finger, then release. The first candidate appears progressively while the Worker refines the result. Choose **Simple**, **Balanced** or **Accurate** to compare Pareto-frontier expressions. Use **Copy LaTeX** or **Copy expression**; Shift-drag or middle-drag pans, wheel or two-finger pinch zooms, and two fingers pan. **Reset view**, **Undo** and **Clear** are in the toolbar.
 
 To produce the installable, offline-capable app:
 
@@ -33,17 +33,17 @@ npm run test:e2e
 npm run benchmark
 ```
 
-Playwright uses the built preview and needs a locally installed Chromium; `npm run test:e2e` does not silently install it. To use a Chromium binary installed separately, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/absolute/path/to/chromium`. Browser tests exercise drawing, candidate switching, clipboard, undo, clearing, circle fallback, rapid redraw and offline reload. The benchmark emits JSON with per-stage timings (preprocess, quick bank, extended models, fallback, beautification, symbolic search, finalize), candidate counts, beam peak and Node heap observations. Timings vary by hardware and are not enforced as CI thresholds.
+Playwright uses the built preview and needs a locally installed Chromium; `npm run test:e2e` does not silently install it. To use a Chromium binary installed separately, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/absolute/path/to/chromium`. Browser tests exercise drawing, candidate switching, clipboard, undo, clearing, circle fallback, rapid redraw, two-finger navigation and offline reload. The benchmark emits JSON with per-stage timings (preprocess, quick bank, extended models, fallback, beautification, symbolic search, finalize), candidate counts, beam peak and Node heap observations. Timings vary by hardware and are not enforced as CI thresholds.
 
-Reference run on 2026-09-23, Node 24.19.0 / Linux x64 / Xeon Platinum 8573C, 256 resampled points:
+Reference run on 2026-09-23, Node 24.19.0 / Linux x64 / AMD EPYC 9V74, 256 resampled points, with a 700 ms progressive budget:
 
 | Stroke | First result | Full result | Peak measured Node heap | Result |
 |---|---:|---:|---:|---|
-| Quadratic | 85 ms | 975 ms | 17.8 MB | quadratic polynomial |
-| `2sin(πx)` | 38 ms | 680 ms | 20.4 MB | `2sin(πx)` |
-| `sin(x²)` with outlier | 35 ms | 1563 ms | 24.5 MB | polynomial approximation |
+| Quadratic | 60 ms | 714 ms | 20.0 MB | quadratic polynomial |
+| `2sin(πx)` | 30 ms | 527 ms | 23.0 MB | `2sin(πx)` |
+| `sin(x²)` with outlier | 29 ms | 746 ms | 25.0 MB | polynomial approximation |
 
-The last case narrowly exceeds the aspirational 1.5 s desktop budget on this run. These are Node measurements, not a mobile device or browser memory profile.
+An atomic fit can finish shortly after the deadline. These are Node measurements; browser and mobile timings may differ.
 
 ## How the fitting works
 
@@ -57,4 +57,4 @@ The framework-independent core entry point is `solveCurve(points, options)` in `
 
 ## First-version limits
 
-One primary continuous stroke per fit; Undo stores at most 20 snapshots. Very short strokes and severely discontinuous or singular curves can give low confidence, and parametric fallback currently fits `x(t)` and `y(t)` independently. Semantic search has bounded grammar and a time budget, so it may prefer a stable approximation over a recognizable closed form. Wheel/Shift-drag work on desktop; touch supports drawing but currently has no two-finger pan or pinch. Results express the observed domain, not a claim of global mathematical identity.
+One primary continuous stroke per fit; Undo stores at most 20 snapshots. Very short strokes and severely discontinuous or singular curves can give low confidence, and parametric fallback currently fits `x(t)` and `y(t)` independently. Progressive search has a time budget, so it may prefer a stable approximation over a recognizable closed form. Synchronous solves without an explicit time budget are bounded by structural search limits. Results express the observed domain, not a claim of global mathematical identity.

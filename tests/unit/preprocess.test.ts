@@ -2,8 +2,71 @@ import { describe, expect, it } from 'vitest';
 import { preprocess, InvalidCurveError } from '../../src/core/preprocess';
 import { resampleFunction } from '../../src/core/resample';
 import { smoothSeries } from '../../src/core/smooth';
+import { makeStroke } from '../fixtures/generateStroke';
+import { solveCurve } from '../../src/core/solver';
 
 describe('curve preprocessing', () => {
+  it('keeps the full domain of valid strokes with as few as eight points', () => {
+    for (const count of [8, 12, 24, 32]) {
+      const result = preprocess(makeStroke(x => 2 * x + 1, { min: -2, max: 2, count }));
+      expect(result.mode, `${count} points`).toBe('function');
+      if (result.mode !== 'function') continue;
+      expect(result.data.domain[1] - result.data.domain[0], `${count} points`).toBeGreaterThan(3.7);
+    }
+  });
+
+  it('keeps sparse endpoints when a continuous curve rises steeply', () => {
+    for (const [count, fn] of [
+      [8, (x: number) => Math.exp(3 * x)],
+      [12, (x: number) => Math.exp(4 * x)],
+      [8, (x: number) => x ** 8],
+    ] as const) {
+      const points = Array.from({ length: count }, (_, i) => {
+        const x = -2 + 4 * i / (count - 1);
+        return { x, y: fn(x), t: i };
+      });
+      const sampled = resampleFunction(points);
+      expect(sampled.domain[0], `${count} point left endpoint`).toBeCloseTo(-2, 8);
+      expect(sampled.domain[1], `${count} point right endpoint`).toBeCloseTo(2, 8);
+    }
+  });
+
+  it('keeps the tail of a sparse stroke whose sample spacing grows gradually', () => {
+    for (const count of [9, 32]) {
+      const points = Array.from({ length: count }, (_, i) => {
+        const x = -2 + 4 * (i / (count - 1)) ** 3;
+        return { x, y: x, t: i };
+      });
+      const result = preprocess(points);
+      expect(result.mode, `${count} points`).toBe('function');
+      if (result.mode !== 'function') continue;
+      expect(result.data.domain[1], `${count} points`).toBeGreaterThan(1.9);
+    }
+  });
+
+  it('interpolates at the actual sample x rather than at bucket centers', () => {
+    for (const count of [48, 64]) {
+      const result = resampleFunction(makeStroke(x => 2 * x + 1, { min: -2, max: 2, count }));
+      const largestError = Math.max(...Array.from(result.x, (x, i) => Math.abs(result.rawY[i] - (2 * x + 1))));
+      expect(largestError, `${count} points`).toBeLessThan(1e-8);
+    }
+  });
+
+  it('rejects a terminal pen jump just beyond the curve without a point-count discontinuity', () => {
+    const line = Array.from({ length: 98 }, (_, i) => {
+      const x = -2 + 4 * i / 97;
+      return { x, y: x, t: i };
+    });
+    for (const count of [99, 100]) {
+      const points = count === 99 ? [...line, { x: 2.02, y: 100, t: 98 }] :
+        [...line, { x: 2.001, y: 2.001, t: 98 }, { x: 2.02, y: 100, t: 99 }];
+      const sampled = resampleFunction(points);
+      expect(Math.max(...sampled.rawY), `${count} points`).toBeLessThan(3);
+      const result = solveCurve(points, { maxStructuralComplexity: 0 });
+      expect(result.balanced.rmse, `${count} points`).toBeLessThan(.02);
+    }
+  });
+
   it('resamples a nonuniform horizontal stroke without dividing by zero', () => {
     const points = Array.from({ length: 90 }, (_, i) => ({ x: 2 * (i / 89) ** 2 - 1, y: 3, t: i }));
     const result = preprocess(points);

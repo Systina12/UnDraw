@@ -19,53 +19,71 @@ export interface SampledParametric {
 export function resampleFunction(points: readonly Point[], count = 256): SampledCurve {
   const clean = sanitizeStroke(points);
   if (clean.length < 2 || count < 2) throw new InvalidCurveError('too-few-points');
-  const xmin = percentile(clean.map(p => p.x), .01);
-  const xmax = percentile(clean.map(p => p.x), .99);
+  const xs = clean.map(p => p.x);
+  const lower = percentile(xs, .01), upper = percentile(xs, .99);
+  const ordered = [...clean].sort((a, b) => a.x - b.x);
+  const inside = ordered.filter(p => p.x >= lower && p.x <= upper);
+  const body = inside.length >= 2 ? inside : ordered;
+  const bodyRange = percentile(body.map(p => p.y), .95) - percentile(body.map(p => p.y), .05);
+  const coherentEnd = (end: Point, nearest: Point, next: Point, third: Point): boolean => {
+    const spacing = Math.abs(nearest.x - next.x);
+    const distance = Math.abs(end.x - nearest.x);
+    if (!(spacing > 0) || distance > 3 * spacing) return false;
+    const estimate = nearest.y + (nearest.y - next.y) * (end.x - nearest.x) / (nearest.x - next.x);
+    const recentDelta = nearest.y - next.y;
+    const previousDelta = next.y - third.y;
+    const growth = recentDelta * previousDelta > 0 && Math.abs(previousDelta) > 1e-12 ?
+      Math.min(20, Math.max(1, Math.abs(recentDelta / previousDelta))) : 1;
+    return Math.abs(end.y - estimate) <= Math.max(3 * Math.abs(recentDelta) * growth, .05 * bodyRange, 1e-6);
+  };
+  const xmin = ordered[0].x < body[0].x && coherentEnd(ordered[0], body[0], body[1], body[2] ?? body[1]) ?
+    ordered[0].x : body[0].x;
+  const xmax = ordered.at(-1)!.x > body.at(-1)!.x &&
+    coherentEnd(ordered.at(-1)!, body.at(-1)!, body.at(-2)!, body.at(-3) ?? body.at(-2)!) ?
+    ordered.at(-1)!.x : body.at(-1)!.x;
   if (xmax <= xmin) throw new InvalidCurveError('domain-too-small');
   const binCount = Math.min(128, Math.max(16, Math.floor(count / 2)));
-  const buckets: number[][] = Array.from({ length: binCount }, () => []);
+  const buckets: Point[][] = Array.from({ length: binCount }, () => []);
   for (const p of clean) {
-    const bin = Math.floor((p.x - xmin) / (xmax - xmin) * binCount);
-    if (bin >= 0 && bin < binCount) buckets[bin].push(p.y);
+    if (p.x < xmin || p.x > xmax) continue;
+    const bin = Math.min(binCount - 1, Math.floor((p.x - xmin) / (xmax - xmin) * binCount));
+    buckets[bin].push(p);
   }
-  const medians = buckets.map(bucket => bucket.length ? median(bucket) : Number.NaN);
-  const present = buckets.map(bucket => bucket.length > 0);
-  const filled = Array.from({ length: binCount }, () => false);
-  for (let i = 0; i < binCount;) {
-    if (present[i]) { i++; continue; }
-    const start = i;
-    while (i < binCount && !present[i]) i++;
-    if (start > 0 && i < binCount && i - start <= 3) {
-      for (let j = start; j < i; j++) {
-        medians[j] = medians[start - 1] + (medians[i] - medians[start - 1]) * (j - start + 1) / (i - start + 1);
-        filled[j] = true;
-      }
+  const occupied = buckets.flatMap((bucket, index) => bucket.length ? [index] : []);
+  if (occupied.length < 2) throw new InvalidCurveError('domain-too-small');
+  const gaps = occupied.slice(1).map((bin, i) => bin - occupied[i]);
+  const typicalGap = median(gaps);
+  let bestStart = 0, bestEnd = 0, islandStart = 0;
+  for (let i = 1; i <= occupied.length; i++) {
+    const preceding = i > 1 ? gaps[i - 2] : 0;
+    const following = i < gaps.length ? gaps[i] : 0;
+    const gapLimit = Math.max(4, 2.5 * typicalGap, 2.5 * Math.max(preceding, following));
+    if (i < occupied.length && occupied[i] - occupied[i - 1] <= gapLimit) continue;
+    if (occupied[i - 1] - occupied[islandStart] > occupied[bestEnd] - occupied[bestStart]) {
+      bestStart = islandStart;
+      bestEnd = i - 1;
     }
+    islandStart = i;
   }
-  let bestStart = -1;
-  let bestEnd = -1;
-  for (let i = 0; i < binCount;) {
-    if (!Number.isFinite(medians[i])) { i++; continue; }
-    const start = i;
-    while (i < binCount && Number.isFinite(medians[i])) i++;
-    if (i - start > bestEnd - bestStart) { bestStart = start; bestEnd = i; }
-  }
-  if (bestStart < 0 || bestEnd - bestStart < 2) throw new InvalidCurveError('domain-too-small');
-
-  const step = (xmax - xmin) / binCount;
-  const x0 = xmin + (bestStart + .5) * step;
-  const x1 = xmin + (bestEnd - .5) * step;
+  if (bestEnd <= bestStart) throw new InvalidCurveError('domain-too-small');
+  const anchors = occupied.slice(bestStart, bestEnd + 1).map(bin => ({
+    bin,
+    x: median(buckets[bin].map(p => p.x)),
+    y: median(buckets[bin].map(p => p.y)),
+  }));
+  const x0 = anchors[0].x;
+  const x1 = anchors.at(-1)!.x;
   const x = new Float64Array(count);
   const rawY = new Float64Array(count);
   const weights = new Float64Array(count);
+  let segment = 0;
   for (let i = 0; i < count; i++) {
     x[i] = x0 + i / (count - 1) * (x1 - x0);
-    const position = (x[i] - xmin) / step - .5;
-    const low = Math.min(bestEnd - 1, Math.max(bestStart, Math.floor(position)));
-    const high = Math.min(bestEnd - 1, low + 1);
-    const blend = Math.min(1, Math.max(0, position - low));
-    rawY[i] = medians[low] * (1 - blend) + medians[high] * blend;
-    weights[i] = filled[low] || filled[high] ? .5 : 1;
+    while (segment < anchors.length - 2 && anchors[segment + 1].x < x[i]) segment++;
+    const left = anchors[segment], right = anchors[segment + 1];
+    const blend = (x[i] - left.x) / (right.x - left.x);
+    rawY[i] = left.y * (1 - blend) + right.y * blend;
+    weights[i] = right.bin - left.bin > 4 ? .5 : 1;
   }
   return { x, rawY, weights, domain: [x0, x1] };
 }

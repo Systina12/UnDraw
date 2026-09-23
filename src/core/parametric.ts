@@ -22,24 +22,32 @@ function axisData(data:ParametricData,axis:'x'|'y'):CurveData {
   const sigma=axis==='x'?data.sigmaX:data.sigmaY;
   return normalizeCurve({x:data.t,rawY,weights:new Float64Array(data.t.length).fill(1),domain:[0,1]},smoothY,sigma);
 }
-function axisPool(data:CurveData,capacity:number):CandidatePool {
-  const pool=new CandidatePool(data,capacity);
-  for(let degree=0;degree<=4;degree++){
+export function createParametricAxisPool(data:ParametricData,axis:'x'|'y',capacity:number):CandidatePool {
+  return new CandidatePool(axisData(data,axis),capacity);
+}
+
+export function fitParametricAxisStage(pool:CandidatePool,stage:'quick'|'extended'|'fallback'|'beautify',
+  shouldStop:()=>boolean=()=>false):void {
+  const data=pool.data;
+  if(stage==='quick')for(let degree=0;degree<=4;degree++){
     const fitted=fitPolynomial(data,degree);if(fitted)pool.add(fitted);
   }
-  for(const fitted of fitSinusoid(data))pool.add(fitted);
-  for(const fitted of fitFourier(data,2))pool.add(fitted);
-  for(const degree of [8,12]){
+  if(stage==='extended'){
+    if(shouldStop())return;
+    for(const fitted of fitSinusoid(data)){if(shouldStop())break;pool.add(fitted);}
+    if(shouldStop())return;
+    for(const fitted of fitFourier(data,2)){if(shouldStop())break;pool.add(fitted);}
+  }
+  if(stage==='fallback')for(const degree of [8,12]){
+    if(shouldStop())break;
     const fitted=fitPolynomial(data,degree);
     if(fitted)pool.add({...fitted,modelFamily:'chebyshev-fallback',approximation:true});
   }
-  beautifyPool(pool);
-  return pool;
+  if(stage==='beautify'&&!shouldStop())beautifyPool(pool);
 }
 interface Pair {x:Candidate;y:Candidate;result:CandidateResult}
-export function solveParametric(data:ParametricData,options:SolverOptions,start=performance.now()):SolveResult {
-  const left=axisPool(axisData(data,'x'),options.semanticBeamWidth);
-  const right=axisPool(axisData(data,'y'),options.semanticBeamWidth);
+export function finalizeParametricResult(data:ParametricData,left:CandidatePool,right:CandidatePool,
+  start:number,stopReason='parametric-fit'):SolveResult {
   const xs=left.frontier().slice(0,8),ys=right.frontier().slice(0,8);
   const scale=Math.max(1e-9,Math.hypot(Math.max(...data.rawX)-Math.min(...data.rawX),
     Math.max(...data.rawY)-Math.min(...data.rawY))/2);
@@ -83,5 +91,15 @@ export function solveParametric(data:ParametricData,options:SolverOptions,start=
     accurate:accurate.result,pareto:frontier.map(pair=>pair.result),domain:[0,1],noise,
     quality,diagnostics:{runtimeMs:performance.now()-start,candidatesGenerated:left.generated+right.generated,
       candidatesFitted:left.size+right.size,candidatesRejected:left.rejected+right.rejected,maxComplexityReached:0,
-      stopReason:'parametric-fit'}};
+      stopReason}};
+}
+
+export function solveParametric(data:ParametricData,options:SolverOptions,start=performance.now()):SolveResult {
+  const left=createParametricAxisPool(data,'x',options.semanticBeamWidth);
+  const right=createParametricAxisPool(data,'y',options.semanticBeamWidth);
+  for(const stage of ['quick','extended','fallback','beautify'] as const){
+    fitParametricAxisStage(left,stage);
+    fitParametricAxisStage(right,stage);
+  }
+  return finalizeParametricResult(data,left,right,start);
 }

@@ -2,9 +2,20 @@ import type { Point } from '../core/types';
 import type { ViewportTransform } from './viewport';
 
 export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTransform,
-  onComplete: (points: Point[]) => void, onDraw?: (points: Point[]) => void): () => void {
+  onComplete: (points: Point[]) => void, onDraw?: (points: Point[], source: PointerEvent) => void,
+  onCancel?: () => void): () => void {
   let active: number | null = null;
   let points: Point[] = [];
+  const touches = new Set<number>();
+  let touchPanning = false;
+
+  const cancel = () => {
+    if (active === null) return;
+    canvas.releasePointerCapture?.(active);
+    active = null;
+    points = [];
+    onCancel?.();
+  };
 
   const append = (event: PointerEvent) => {
     const events = typeof event.getCoalescedEvents === 'function'
@@ -21,10 +32,18 @@ export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTran
       const { x, y } = transform.screenToWorld(pixelX, pixelY);
       points.push({ x, y, t: sample.timeStamp });
     }
-    onDraw?.([...points]);
+    onDraw?.([...points], event);
   };
 
   const down = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') {
+      touches.add(event.pointerId);
+      if (touches.size > 1) {
+        touchPanning = true;
+        cancel();
+      }
+      if (touchPanning) return;
+    }
     if (active !== null || event.button !== 0 || event.shiftKey) return;
     active = event.pointerId;
     points = [];
@@ -35,6 +54,10 @@ export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTran
     if (event.pointerId === active) append(event);
   };
   const finish = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') {
+      touches.delete(event.pointerId);
+      if (touches.size === 0) touchPanning = false;
+    }
     if (event.pointerId !== active) return;
     append(event);
     canvas.releasePointerCapture?.(event.pointerId);

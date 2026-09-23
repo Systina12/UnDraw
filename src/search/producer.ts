@@ -15,5 +15,6 @@ export interface Candidate extends CandidateDraft {
   score:number;
   signature:string;
 }
-export interface SolveContext {options:SolverOptions;deadline:number;shouldAbort:()=>boolean;now?:()=>number}
+export interface SolveContext {options:SolverOptions;deadline:number;shouldAbort:()=>boolean;
+  now?:()=>number;initialBestError?:number}
 export interface CandidateProducer {produce(data:CurveData,context:SolveContext):Iterable<CandidateDraft>|AsyncIterable<CandidateDraft>}
