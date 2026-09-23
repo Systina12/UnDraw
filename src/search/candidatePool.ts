@@ -4,7 +4,7 @@ import {evaluate} from '../expr/evaluate';
 import {simplify} from '../expr/simplify';
 import {structuralHash} from '../expr/canonical';
 import {operatorComplexity} from '../expr/complexity';
-import {expressionCost,scoreMdl} from './scoring';
+import {expressionCost,expressionConstantCost,scoreMdl} from './scoring';
 import {paretoPrune} from './pareto';
 
 export class CandidatePool {
@@ -35,7 +35,7 @@ export class CandidatePool {
       if(invalid>this.data.x.length*.02||!Number.isFinite(sum))throw Error('Invalid candidate');
       const n=this.data.x.length-invalid;
       const mseNormalized=sum/n,rmse=Math.sqrt(mseNormalized)*scale;
-      const complexity=operatorComplexity(expr)+draft.freeParameterCount;
+      const complexity=operatorComplexity(expr)+draft.freeParameterCount+expressionConstantCost(expr);
       const score=scoreMdl({mseNormalized,sigmaNormalized:this.data.sigmaDraw/scale,n,k:expressionCost(expr,draft.freeParameterCount)});
       const candidate:Candidate={...draft,expr,metrics:{rmse,normalizedRmse:rmse/scale,mseNormalized,robustError:huber/n,maxError:maxError*scale},complexity,score,signature};
       if(!Number.isFinite(score))throw Error('Invalid score');

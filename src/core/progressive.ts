@@ -4,6 +4,7 @@ import {preprocess,InvalidCurveError} from './preprocess';
 import {CandidatePool} from '../search/candidatePool';
 import {fastModelBank} from '../search/modelBank';
 import {finalizeFunctionResult} from './solver';
+import {beautifyPool} from '../beautify/beautify';
 
 export interface SolveHooks {
   now:()=>number;
@@ -22,6 +23,7 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
   if(prepared.mode==='parametric')throw new InvalidCurveError('no-finite-samples');
   const pool=new CandidatePool(prepared.data,settings.semanticBeamWidth);
   for(const candidate of fastModelBank(prepared.data))pool.add(candidate);
+  beautifyPool(pool);
   const result=finalizeFunctionResult(pool,prepared.data,start);
   hooks.emit({stage:'fast-models',result});
   await hooks.yieldControl();

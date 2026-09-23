@@ -7,13 +7,13 @@ export function scoreMdl({mseNormalized,sigmaNormalized,n,k}:{mseNormalized:numb
 export function constantCost(constant:Constant):number {
   switch(constant.kind){
     case 'integer':return Math.abs(constant.value)<=10?0:1;
-    case 'rational':return .3+Math.log2(Math.max(1,constant.q))/4;
-    case 'piMultiple':return .35+Math.log2(Math.max(1,constant.q))/4;
+    case 'rational':return .4+.8*Math.log2(Math.max(1,constant.q))+.08*Math.log2(Math.max(1,Math.abs(constant.p)));
+    case 'piMultiple':return .2+.65*Math.log2(Math.max(1,constant.q))+.08*Math.log2(Math.max(1,Math.abs(constant.p)));
     case 'eMultiple':case 'sqrtMultiple':return .6;
     case 'float':return Number.isInteger(constant.value)&&Math.abs(constant.value)<=10?0:2.5;
   }
 }
-export function expressionCost(expr:Expr,freeParams:number):number {
+export function expressionConstantCost(expr:Expr):number {
   let costs=0;
   function walk(e:Expr):void {
     if(e.kind==='const')costs+=constantCost(e.value);
@@ -23,5 +23,8 @@ export function expressionCost(expr:Expr,freeParams:number):number {
     else if('arg' in e)walk(e.arg);
   }
   walk(expr);
-  return freeParams+.7*operatorComplexity(expr)+costs;
+  return costs;
+}
+export function expressionCost(expr:Expr,freeParams:number):number {
+  return freeParams+.7*operatorComplexity(expr)+expressionConstantCost(expr);
 }

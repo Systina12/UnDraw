@@ -25,18 +25,18 @@ export function simplify(expr:Expr,domain?:[number,number]):Expr {
     case 'add':{
       const flat=expr.args.map(e=>simplify(e,domain)).flatMap(e=>e.kind==='add'?e.args:[e]);
       const terms=new Map<string,{expr:Expr;factor:number}>();
-      let total=0;
+      let total=0;const constants:Expr[]=[];
       for(const item of flat){
-        if(item.kind==='const'){total+=numericConstant(item.value);continue;}
+        if(item.kind==='const'){total+=numericConstant(item.value);constants.push(item);continue;}
         let factor=1,base:Expr=item;
-        if(item.kind==='mul'&&item.args.length>1&&item.args[0].kind==='const'){
+        if(item.kind==='mul'&&item.args.length>1&&item.args[0].kind==='const'&&item.args[0].value.kind==='float'){
           factor=numericConstant(item.args[0].value);base=item.args.length===2?item.args[1]:mul(...item.args.slice(1));
         }
         const key=structuralHash(base),prior=terms.get(key);
         terms.set(key,{expr:base,factor:factor+(prior?.factor??0)});
       }
       const args:Expr[]=[];
-      if(!closeZero(total))args.push(constant(total));
+      if(!closeZero(total))args.push(constants.length===1?constants[0]:constant(total));
       for(const {expr:term,factor} of terms.values())if(!closeZero(factor))args.push(factor===1?term:simplify(mul(constant(factor),term),domain));
       if(!args.length)return integer(0);
       return args.length===1?args[0]:canonicalize({kind:'add',args});
@@ -44,9 +44,9 @@ export function simplify(expr:Expr,domain?:[number,number]):Expr {
     case 'mul':{
       const flat=expr.args.map(e=>simplify(e,domain)).flatMap(e=>e.kind==='mul'?e.args:[e]);
       const terms=new Map<string,{expr:Expr;power:number}>();
-      let factor=1;
+      let factor=1;const constants:Expr[]=[];
       for(const item of flat){
-        if(item.kind==='const'){factor*=numericConstant(item.value);continue;}
+        if(item.kind==='const'){factor*=numericConstant(item.value);constants.push(item);continue;}
         let base:Expr=item,power=1;
         if(item.kind==='pow'&&item.exponent.kind==='const'&&Number.isInteger(numericConstant(item.exponent.value))){base=item.base;power=numericConstant(item.exponent.value);}
         const key=structuralHash(base),prior=terms.get(key);
@@ -54,7 +54,7 @@ export function simplify(expr:Expr,domain?:[number,number]):Expr {
       }
       if(closeZero(factor))return integer(0);
       const args:Expr[]=[];
-      if(factor!==1)args.push(constant(factor));
+      if(factor!==1)args.push(constants.length===1?constants[0]:constant(factor));
       for(const {expr:term,power} of terms.values())if(power!==0)args.push(power===1?term:pow(term,integer(power)));
       if(!args.length)return integer(1);
       return args.length===1?args[0]:canonicalize({kind:'mul',args});

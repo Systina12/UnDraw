@@ -10,6 +10,7 @@ import {evaluate} from '../expr/evaluate';
 import {toLatex} from '../expr/latex';
 import {toPlain} from '../expr/plain';
 import {fastModelBank} from '../search/modelBank';
+import {beautifyPool} from '../beautify/beautify';
 
 export function makeCandidateResult(candidate:Candidate,data:CurveData):CandidateResult {
   const x=Array.from(data.x);
@@ -40,5 +41,6 @@ export function solveCurve(points:readonly Point[],options:Partial<SolverOptions
   if(prepared.mode==='parametric')throw new InvalidCurveError('no-finite-samples');
   const pool=new CandidatePool(prepared.data,settings.semanticBeamWidth);
   for(const candidate of fastModelBank(prepared.data))pool.add(candidate);
+  beautifyPool(pool);
   return finalizeFunctionResult(pool,prepared.data,start);
 }
