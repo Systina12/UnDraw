@@ -11,6 +11,8 @@ import {toLatex} from '../expr/latex';
 import {toPlain} from '../expr/plain';
 import {fastModelBank} from '../search/modelBank';
 import {beautifyPool} from '../beautify/beautify';
+import {produceFallback} from '../search/fallback';
+import {searchSymbolic} from '../search/symbolic';
 
 export function makeCandidateResult(candidate:Candidate,data:CurveData):CandidateResult {
   const x=Array.from(data.x);
@@ -41,6 +43,14 @@ export function solveCurve(points:readonly Point[],options:Partial<SolverOptions
   if(prepared.mode==='parametric')throw new InvalidCurveError('no-finite-samples');
   const pool=new CandidatePool(prepared.data,settings.semanticBeamWidth);
   for(const candidate of fastModelBank(prepared.data))pool.add(candidate);
+  for(const candidate of produceFallback(prepared.data))pool.add(candidate);
   beautifyPool(pool);
+  const representative=pool.frontier().sort((a,b)=>a.score-b.score)[0];
+  if(settings.maxStructuralComplexity>0&&(!representative||representative.complexity>12||
+      representative.metrics.rmse>1.5*prepared.data.sigmaDraw)){
+    const context={options:settings,deadline:performance.now()+(settings.timeBudgetMs??700),shouldAbort:()=>false,now:()=>performance.now()};
+    for(const candidate of searchSymbolic(prepared.data,context,level=>{void level;}))pool.add(candidate);
+    beautifyPool(pool);
+  }
   return finalizeFunctionResult(pool,prepared.data,start);
 }
