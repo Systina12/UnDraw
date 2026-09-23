@@ -12,12 +12,14 @@ test('two-finger navigation preserves a result and leaves the next touch free to
   const formula=page.getByTestId('formula');
   await expect(formula).toContainText('x');
   const before=await page.locator('[data-plain]').textContent();
-  const box=await page.locator('canvas').boundingBox();
+  const canvas=page.locator('canvas');
+  await canvas.scrollIntoViewIfNeeded();
+  let box=await canvas.boundingBox();
   if(!box)throw new Error('Missing coordinate plane');
   const cdp=await context.newCDPSession(page);
   const touch=(type:'touchStart'|'touchMove'|'touchEnd',touchPoints:{x:number;y:number;id:number}[])=>(
     cdp.send('Input.dispatchTouchEvent',{type,touchPoints}));
-  const centerY=box.y+box.height/2;
+  let centerY=box.y+box.height/2;
   await touch('touchStart',[{x:box.x+40,y:centerY,id:1}]);
   await touch('touchStart',[{x:box.x+40,y:centerY,id:1},{x:box.x+90,y:centerY,id:2}]);
   await touch('touchMove',[{x:box.x-15,y:centerY,id:1},{x:box.x+90,y:centerY,id:2}]);
@@ -25,6 +27,10 @@ test('two-finger navigation preserves a result and leaves the next touch free to
   await page.getByRole('button',{name:'Find functions'}).click();
   await page.getByRole('button',{name:'Simple',exact:true}).click();
   await expect(formula).toContainText('x');
+  await canvas.scrollIntoViewIfNeeded();
+  box=await canvas.boundingBox();
+  if(!box)throw new Error('Missing coordinate plane after navigation');
+  centerY=box.y+box.height/2;
   await touch('touchStart',[{x:box.x+25,y:centerY-40,id:3}]);
   for(let i=1;i<=36;i++){
     const u=-1+2*i/36;
