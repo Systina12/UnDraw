@@ -65,9 +65,9 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     if(!ctx)return;
     renderPlane(ctx,view,dpr);
     const colors=['#236aa5','#137f79','#8152aa','#b46920','#2772ac'];
-    state.result?.groups.forEach((group,i)=>drawFittedPlot(ctx,group.result[state.selected],view,dpr,colors[i%colors.length]));
     state.strokes.forEach(stroke=>drawStroke(ctx,stroke,view,dpr));
     drawStroke(ctx,state.draft,view,dpr);
+    state.result?.groups.forEach((group,i)=>drawFittedPlot(ctx,group.result[state.selected],view,dpr,colors[i%colors.length]));
   };
   const update=()=>{
     if(state.result){

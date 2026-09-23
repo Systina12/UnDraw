@@ -26,7 +26,7 @@ canvas{display:block;width:100%;height:clamp(380px,58vh,660px);border:1px solid 
 .formula{min-height:60px;display:flex;justify-content:center;align-items:center;overflow-x:auto;overflow-y:hidden;white-space:nowrap;font-size:clamp(17px,2.3vw,27px);font-weight:500;margin:8px auto 0}
 .formula:has(.formula-row){display:flex;flex-direction:column;align-items:stretch;gap:12px;white-space:normal;overflow-y:visible}
 .formula-row{display:flex;align-items:center;justify-content:center;gap:16px;min-width:0;padding:5px 0}
-.formula-label{flex:0 0 125px;text-align:right;color:#8294a9;font-size:12px;font-weight:700;white-space:normal}
+.formula-label{flex:0 0 170px;text-align:right;color:#8294a9;font-size:12px;font-weight:700;white-space:normal}
 .formula-expression{min-width:0;overflow-x:auto;text-align:left}
 .quality{color:#3e7a6d;font-size:13px;min-height:21px;margin:3px 0 18px}.choices{display:inline-flex;gap:3px;padding:4px;background:#f1f5f9;border-radius:11px}
 .choices button{border:0;background:transparent;color:#5b6e84;border-radius:8px;padding:9px clamp(14px,3vw,26px);font-size:13px;font-weight:650}
