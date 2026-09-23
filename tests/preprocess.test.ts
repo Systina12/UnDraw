@@ -22,6 +22,18 @@ describe("curve preprocessing", () => {
     expect(result.data.normalizedY.every(Number.isFinite)).toBe(true);
   });
 
+  it("anchors bucket medians to observed x positions for an exact sampled sinusoid", () => {
+    const points = stroke((x) => 2 * Math.sin(Math.PI * x), 180);
+    const result = preprocessCurve(points);
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    const rmse = Math.sqrt(result.data.y.reduce((total, value, index) => {
+      const difference = value - 2 * Math.sin(Math.PI * (result.data.x[index] ?? 0));
+      return total + difference * difference;
+    }, 0) / result.data.y.length);
+    expect(rmse).toBeLessThan(0.005);
+  });
+
   it("rejects a stroke whose x buckets contain substantial vertical spread", () => {
     const circle = Array.from({ length: 160 }, (_, index) => {
       const angle = (2 * Math.PI * index) / 159;
@@ -30,6 +42,15 @@ describe("curve preprocessing", () => {
     const validation = validateFunctionStroke(circle, 64);
     expect(validation.valid).toBe(false);
     expect(validation.reason).toMatch(/single-valued/i);
+  });
+
+  it("rejects finite coordinates whose derived range overflows", () => {
+    const alternating = Array.from({ length: 320 }, (_, index) => ({
+      x: -1 + (2 * index) / 319,
+      y: index % 2 === 0 ? -1e308 : 1e308,
+      t: index,
+    }));
+    expect(validateFunctionStroke(alternating, 32).valid).toBe(false);
   });
 
   it("clamps pathological sampling requests and input sizes", () => {

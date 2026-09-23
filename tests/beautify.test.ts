@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { c, exprToPlain, mul, sin, x } from "../src/expr/ast";
+import { add, c, exprToPlain, mul, sin, x } from "../src/expr/ast";
 import { beautifyCandidate } from "../src/beautify/beautify";
 import { makeCandidate } from "../src/search/candidates";
 import type { CurveData } from "../src/core/types";
@@ -23,5 +23,20 @@ describe("constant beautification", () => {
     expect(pretty.expr).toMatchObject({ kind: "mul" });
     expect(exprToPlain(pretty.expr)).toContain("π");
     expect(pretty.modelFamily).toBe("sinusoid");
+  });
+
+  it("stops constant search as soon as its time budget expires", () => {
+    const raw = add(Array.from({ length: 6 }, (_, index) => sin(mul(c(0.21 + index * 0.13), x()))));
+    const candidate = makeCandidate(raw, "sinusoid", data);
+    let checks = 0;
+    const boundedBeautify = beautifyCandidate as unknown as (
+      item: typeof candidate,
+      curve: typeof data,
+      shouldStop: () => boolean,
+    ) => typeof candidate;
+
+    boundedBeautify(candidate, data, () => { checks += 1; return true; });
+
+    expect(checks).toBe(1);
   });
 });

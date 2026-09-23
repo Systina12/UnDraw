@@ -1,6 +1,8 @@
 import type { Constant, Expr } from "../core/types";
+import { constantValue } from "./ast";
 
 export function serializeExpr(expression: Expr): string {
+  if (!isExpr(expression)) throw new Error("Invalid expression payload");
   return JSON.stringify(expression);
 }
 
@@ -43,13 +45,17 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isConstant(value: unknown): value is Constant {
   if (!isRecord(value) || typeof value.kind !== "string") return false;
+  let fieldsValid = false;
   switch (value.kind) {
-    case "float": return isFiniteNumber(value.value);
-    case "integer": return isFiniteNumber(value.value) && Number.isInteger(value.value);
+    case "float": fieldsValid = isFiniteNumber(value.value); break;
+    case "integer": fieldsValid = Number.isSafeInteger(value.value); break;
     case "rational":
     case "piMultiple":
-    case "eMultiple": return Number.isInteger(value.p) && Number.isInteger(value.q) && value.q !== 0;
-    case "sqrtMultiple": return Number.isInteger(value.p) && Number.isInteger(value.q) && value.q !== 0 && Number.isInteger(value.n) && (value.n as number) >= 0;
+    case "eMultiple": fieldsValid = Number.isSafeInteger(value.p) && Number.isSafeInteger(value.q) && value.q !== 0; break;
+    case "sqrtMultiple": fieldsValid = Number.isSafeInteger(value.p) && Number.isSafeInteger(value.q) && value.q !== 0 && Number.isSafeInteger(value.n) && (value.n as number) >= 0; break;
     default: return false;
   }
+  if (!fieldsValid) return false;
+  const numericValue = constantValue(value as unknown as Constant);
+  return Number.isFinite(numericValue) && Math.abs(numericValue) <= Number.MAX_SAFE_INTEGER;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SolverWorkerClient } from "../src/worker/client";
-import type { WorkerResponse } from "../src/core/types";
+import type { WorkerRequest, WorkerResponse } from "../src/core/types";
+import { MAX_INPUT_POINTS } from "../src/core/preprocess";
 
 class FakeWorker {
   public onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null = null;
@@ -56,5 +57,86 @@ describe("worker request replacement", () => {
     client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => received.push(response));
     expect(received[0]).toMatchObject({ type: "invalid", reason: expect.stringMatching(/worker/i) });
     expect(worker.terminated).toBe(true);
+  });
+
+  it("reports worker construction failures as invalid results", () => {
+    const received: WorkerResponse[] = [];
+    const client = new SolverWorkerClient(() => { throw new Error("Workers are blocked"); });
+    expect(() => client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => received.push(response))).not.toThrow();
+    expect(received[0]).toMatchObject({ type: "invalid", reason: expect.stringMatching(/worker/i) });
+  });
+
+  it("caps oversized point payloads before sending them to the worker", () => {
+    const worker = new FakeWorker();
+    const client = new SolverWorkerClient(() => worker);
+    const points = Array.from({ length: MAX_INPUT_POINTS + 20 }, (_, index) => ({ x: index, y: -index, t: index }));
+    client.solve(points, { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, () => undefined);
+    const request = worker.messages[0] as WorkerRequest;
+    expect(request.points).toHaveLength(MAX_INPUT_POINTS);
+    expect(request.points[0]?.x).toBe(0);
+    expect(request.points.at(-1)?.x).toBe(points.at(-1)?.x);
+  });
+
+  it("keeps a replacement request started by a terminal response callback", () => {
+    const workers: FakeWorker[] = [];
+    const received: string[] = [];
+    const client = new SolverWorkerClient(() => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    });
+    const firstId = client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => {
+      received.push(`first:${response.type}`);
+      if (response.type === "done") {
+        client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (next) => received.push(`next:${next.type}`));
+      }
+    });
+    workers[0]?.send({ type: "done", id: firstId, result: {} as never });
+    workers[1]?.send({ type: "progress", id: firstId + 1, stage: "next" });
+    expect(received).toEqual(["first:done", "next:progress"]);
+    client.cancel();
+    expect(workers[1]?.terminated).toBe(true);
+  });
+
+  it("keeps a replacement request started by a worker error callback", () => {
+    const workers: FakeWorker[] = [];
+    const received: string[] = [];
+    const client = new SolverWorkerClient(() => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    });
+    client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => {
+      received.push(`first:${response.type}`);
+      if (response.type === "invalid") {
+        client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (next) => received.push(`next:${next.type}`));
+      }
+    });
+    workers[0]?.fail();
+    workers[1]?.send({ type: "progress", id: 2, stage: "next" });
+    expect(received).toEqual(["first:invalid", "next:progress"]);
+    client.cancel();
+    expect(workers[1]?.terminated).toBe(true);
+  });
+
+  it("keeps a replacement request started by a post failure callback", () => {
+    const workers: FakeWorker[] = [];
+    const received: string[] = [];
+    const client = new SolverWorkerClient(() => {
+      const worker = new FakeWorker();
+      if (workers.length === 0) worker.postMessage = () => { throw new Error("DataCloneError"); };
+      workers.push(worker);
+      return worker;
+    });
+    client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (response) => {
+      received.push(`first:${response.type}`);
+      if (response.type === "invalid") {
+        client.solve([], { xmin: -1, xmax: 1, ymin: -1, ymax: 1, width: 10, height: 10 }, {}, (next) => received.push(`next:${next.type}`));
+      }
+    });
+    workers[1]?.send({ type: "progress", id: 2, stage: "next" });
+    expect(received).toEqual(["first:invalid", "next:progress"]);
+    client.cancel();
+    expect(workers[1]?.terminated).toBe(true);
   });
 });

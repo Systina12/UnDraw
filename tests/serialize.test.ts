@@ -16,5 +16,13 @@ describe("expression serialization", () => {
   it("keeps non-finite evaluation out of the AST API", () => {
     expect(evaluateExpr(x(), Number.NaN)).toBeNull();
     expect(() => deserializeExpr(JSON.stringify(c(Number.NaN)))).toThrow(/invalid/i);
+    expect(() => serializeExpr(c(Number.NaN))).toThrow(/invalid/i);
+  });
+
+  it("rejects constants whose serialized integer fields overflow their value", () => {
+    const overflowingConstant = JSON.stringify({ kind: "const", value: { kind: "piMultiple", p: 1e308, q: 1 } });
+    const oversizedFloat = JSON.stringify({ kind: "const", value: { kind: "float", value: 1e100 } });
+    expect(() => deserializeExpr(overflowingConstant)).toThrow(/invalid/i);
+    expect(() => deserializeExpr(oversizedFloat)).toThrow(/invalid/i);
   });
 });

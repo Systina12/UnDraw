@@ -58,14 +58,16 @@ function replaceConstants(
   return { ...expression, arg: replaceConstants(expression.arg, slots, replacements, `${path}arg.`) };
 }
 
-export function beautifyCandidate(candidate: Candidate, data: CurveData): Candidate {
+export function beautifyCandidate(candidate: Candidate, data: CurveData, shouldStop: () => boolean = () => false): Candidate {
   const slots = collectConstantSlots(candidate.expr).slice(0, 8);
   let beam: BeamState[] = [{ replacements: [], candidate }];
   for (let index = 0; index < slots.length; index += 1) {
+    if (shouldStop()) break;
     const slot = slots[index];
     if (!slot) continue;
     const next: BeamState[] = [];
     for (const state of beam) {
+      if (shouldStop()) break;
       for (const alternative of prettyAlternatives(slot.value)) {
         const replacements = [...state.replacements, alternative];
         const expression = replaceConstants(candidate.expr, slots, replacements);
@@ -75,7 +77,7 @@ export function beautifyCandidate(candidate: Candidate, data: CurveData): Candid
         });
       }
     }
-    beam = next.sort((a, b) => a.candidate.score - b.candidate.score).slice(0, 128);
+    if (next.length > 0) beam = next.sort((a, b) => a.candidate.score - b.candidate.score).slice(0, 128);
   }
   const tolerance = Math.max(2 * data.noise, 0.005);
   return beam

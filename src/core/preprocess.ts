@@ -12,6 +12,12 @@ export const MIN_BUCKETS = 8;
 export const MAX_BUCKETS = 512;
 export const MAX_INPUT_POINTS = 8192;
 
+export function limitInputPoints(points: readonly Point[]): Point[] {
+  if (points.length <= MAX_INPUT_POINTS) return [...points];
+  const lastIndex = points.length - 1;
+  return Array.from({ length: MAX_INPUT_POINTS }, (_, index) => points[Math.round((index * lastIndex) / (MAX_INPUT_POINTS - 1))]!);
+}
+
 export type PreprocessResult =
   | { kind: "ok"; data: CurveData; validation: ValidationResult }
   | { kind: "invalid"; reason: string; validation: ValidationResult };
@@ -22,12 +28,10 @@ function boundedInteger(value: number | undefined, fallback: number, minimum: nu
 
 function finitePoints(points: readonly Point[]): Point[] {
   const source = Array.isArray(points) ? points : [];
-  const valid = source.filter((point): point is Point => typeof point === "object" && point !== null && Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.t));
-  if (valid.length <= MAX_INPUT_POINTS) return valid;
-  return Array.from({ length: MAX_INPUT_POINTS }, (_, index) => valid[Math.round((index * (valid.length - 1)) / (MAX_INPUT_POINTS - 1))]!);
+  return limitInputPoints(source).filter((point): point is Point => typeof point === "object" && point !== null && Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.t));
 }
 
-function bucketValues(points: readonly Point[], bucketCount: number): { values: number[][]; xmin: number; xmax: number; yrange: number } {
+function bucketValues(points: readonly Point[], bucketCount: number): { values: number[][]; xValues: number[][]; xmin: number; xmax: number; yrange: number } {
   let xmin = Number.POSITIVE_INFINITY;
   let xmax = Number.NEGATIVE_INFINITY;
   let ymin = Number.POSITIVE_INFINITY;
@@ -40,16 +44,22 @@ function bucketValues(points: readonly Point[], bucketCount: number): { values: 
   }
   const width = Math.max(1e-12, xmax - xmin);
   const values = Array.from({ length: bucketCount }, () => [] as number[]);
+  const xValues = Array.from({ length: bucketCount }, () => [] as number[]);
   for (const point of points) {
     const bucket = Math.min(bucketCount - 1, Math.max(0, Math.floor(((point.x - xmin) / width) * bucketCount)));
     values[bucket]?.push(point.y);
+    xValues[bucket]?.push(point.x);
   }
-  return { values, xmin, xmax, yrange: Math.max(1e-9, ymax - ymin) };
+  return { values, xValues, xmin, xmax, yrange: Math.max(1e-9, ymax - ymin) };
 }
 
 export function validateFunctionStroke(points: readonly Point[], bucketCount = 128): ValidationResult {
   const validPoints = finitePoints(points);
   if (validPoints.length < 4) return { valid: false, reason: "Draw a longer curve first.", spreadRatio: 1, effectiveBuckets: 0 };
+  const coordinateLimit = Number.MAX_VALUE / (64 * MAX_INPUT_POINTS);
+  if (validPoints.some((point) => Math.abs(point.x) > coordinateLimit || Math.abs(point.y) > coordinateLimit)) {
+    return { valid: false, reason: "The stroke exceeds the safe numeric range.", spreadRatio: 1, effectiveBuckets: 0 };
+  }
   const totalXTravel = validPoints.slice(1).reduce((total, point, index) => total + Math.abs(point.x - (validPoints[index]?.x ?? point.x)), 0);
   const directXTravel = Math.abs((validPoints.at(-1)?.x ?? 0) - (validPoints[0]?.x ?? 0));
   const backtrackRatio = (totalXTravel - directXTravel) / Math.max(1e-9, totalXTravel);
@@ -107,10 +117,12 @@ function savitzkyGolay(values: readonly number[]): number[] {
 }
 
 function bucketMedians(points: readonly Point[], bucketCount: number): { centers: number[]; medians: Array<number | undefined>; xmin: number; xmax: number } {
-  const { values, xmin, xmax } = bucketValues(points, bucketCount);
+  const { values, xValues, xmin, xmax } = bucketValues(points, bucketCount);
   const width = Math.max(1e-12, xmax - xmin);
   return {
-    centers: values.map((_, index) => xmin + ((index + 0.5) / bucketCount) * width),
+    centers: values.map((bucket, index) => bucket.length > 0
+      ? median(xValues[index] ?? [])
+      : xmin + ((index + 0.5) / bucketCount) * width),
     medians: values.map((bucket) => (bucket.length > 0 ? median(bucket) : undefined)),
     xmin,
     xmax,

@@ -185,12 +185,16 @@ export function mountApplication(root: HTMLElement): void {
   });
 }
 
-async function copyText(value: string): Promise<void> {
+export async function copyText(value: string): Promise<void> {
   let textarea: HTMLTextAreaElement | null = null;
   try {
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return;
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch {
+        // Permission failures fall through to the browser copy command.
+      }
     }
     textarea = document.createElement("textarea");
     textarea.value = value;

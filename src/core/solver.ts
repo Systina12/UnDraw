@@ -149,7 +149,8 @@ function solveFunction(points: readonly Point[], options: SolverOptions, allowPa
       addCandidates(produced);
     } catch { /* a single invalid model must not stop the bank */ }
     const producerBestError = Math.min(...produced.map((candidate) => candidate.error));
-    if (producerIndex >= 1 && Number.isFinite(producerBestError) && producerBestError <= Math.max(1.8 * data.noise, 0.005)) break;
+    const minimumProducerIndex = preferPeriodic ? 0 : 1;
+    if (producerIndex >= minimumProducerIndex && Number.isFinite(producerBestError) && producerBestError <= Math.max(1.8 * data.noise, 0.005)) break;
   }
   if (context.now() <= context.deadline) addCandidates(searchSymbolic(data, context.options.maxComplexity));
   if (context.now() <= context.deadline || pool.all().length === 0) addCandidates(fitPolynomial(data, 16));
@@ -166,18 +167,19 @@ function solveFunction(points: readonly Point[], options: SolverOptions, allowPa
   }
   const beautifySeeds = [...familySeeds.values()].sort((a, b) => a.error - b.error || a.score - b.score).slice(0, 12);
   for (const seed of beautifySeeds) {
-    try { pool.add(beautifyCandidate(seed, data)); } catch { /* keep the fitted candidate */ }
+    if (context.now() >= context.deadline) break;
+    try { pool.add(beautifyCandidate(seed, data, () => context.now() >= context.deadline)); } catch { /* keep the fitted candidate */ }
   }
   if (preferPeriodic) {
     const periodicSeed = pool.all()
       .filter((candidate) => /sinusoid|fourier/.test(candidate.modelFamily) && candidate.complexity <= 12)
       .sort((a, b) => a.complexity - b.complexity || a.error - b.error)[0];
-    if (periodicSeed) {
-      try { pool.add(beautifyCandidate(periodicSeed, data)); } catch { /* keep the fitted candidate */ }
+    if (periodicSeed && context.now() < context.deadline) {
+      try { pool.add(beautifyCandidate(periodicSeed, data, () => context.now() >= context.deadline)); } catch { /* keep the fitted candidate */ }
     }
   }
   const frontier = pool.frontier();
-  const selections = selectPresentationCandidates(frontier, data.noise, data.y);
+  const selections = selectPresentationCandidates(frontier, data.noise);
   const simple = toCandidateResult(selections.simple, data);
   const balanced = toCandidateResult(selections.balanced, data);
   const accurate = toCandidateResult(selections.accurate, data);

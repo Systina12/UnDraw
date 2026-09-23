@@ -43,6 +43,34 @@ describe("expression AST", () => {
     expect(exprToPlain(expression)).toBe("1/(2 + x)");
   });
 
+  it("preserves denominator multiplication grouping in plain expressions", () => {
+    const expression = div(c(1), mul(c(2), x()));
+    expect(exprToPlain(expression)).toBe("1/(2*x)");
+  });
+
+  it("preserves a powered base when rendering nested powers", () => {
+    const expression = pow(pow(x(), c(2)), c(3));
+    expect(exprToPlain(expression)).toBe("(x^2)^3");
+    expect(exprToLatex(expression)).toBe("\\left(x^{2}\\right)^{3}");
+  });
+
+  it("groups a negative constant used as a power base", () => {
+    const expression = pow(c(-2), c(2));
+    expect(exprToPlain(expression)).toBe("(-2)^2");
+    expect(exprToLatex(expression)).toBe("\\left(-2\\right)^{2}");
+  });
+
+  it("groups compound symbolic constants in powers and plain denominators", () => {
+    const poweredPiMultiple = pow(c({ kind: "piMultiple", p: 2, q: 1 }), c(2));
+    const rationalDenominator = div(c(1), c({ kind: "rational", p: 2, q: 3 }));
+    const piDenominator = div(c(1), c({ kind: "piMultiple", p: 2, q: 1 }));
+    expect(exprToPlain(poweredPiMultiple)).toBe("(2π)^2");
+    expect(exprToLatex(poweredPiMultiple)).toBe("\\left(2\\pi\\right)^{2}");
+    expect(exprToPlain(rationalDenominator)).toBe("1/(2/3)");
+    expect(exprToLatex(rationalDenominator)).toBe("\\frac{1}{\\frac{2}{3}}");
+    expect(exprToPlain(piDenominator)).toBe("1/(2π)");
+  });
+
   it("normalizes fitted trigonometric phases near a human-friendly angle", () => {
     const expression = simplify(mul(c(-3), cos(add([c(-3.15662), mul(c(6.31325), x())]))));
     expect(exprToPlain(expression)).toContain("cos");

@@ -185,6 +185,17 @@ function precedence(expression: Expr): number {
   if (expression.kind === "add") return 1;
   if (expression.kind === "mul" || expression.kind === "div") return 2;
   if (expression.kind === "pow") return 3;
+  if (expression.kind === "const") {
+    if (constantValue(expression.value) < 0) return 3;
+    switch (expression.value.kind) {
+      case "rational": return expression.value.q === 1 ? 4 : 2;
+      case "piMultiple":
+      case "eMultiple": return expression.value.q === 1 && Math.abs(expression.value.p) === 1 ? 4 : 2;
+      case "sqrtMultiple": return 2;
+      case "float":
+      case "integer": return 4;
+    }
+  }
   return 4;
 }
 
@@ -206,8 +217,8 @@ function render(expression: Expr, latex: boolean, parentPrecedence = 0, variable
       break;
     }
     case "mul": result = expression.args.map((arg) => child(arg, 2)).join(latex ? " \\, " : "*"); break;
-    case "div": result = latex ? `\\frac{${render(expression.a, true, 0, variable)}}{${render(expression.b, true, 0, variable)}}` : `${child(expression.a, 2)}/${child(expression.b, 2)}`; break;
-    case "pow": result = latex ? `${child(expression.base, 3)}^{${render(expression.exponent, true, 0, variable)}}` : `${child(expression.base, 3)}^${child(expression.exponent, 3)}`; break;
+    case "div": result = latex ? `\\frac{${render(expression.a, true, 0, variable)}}{${render(expression.b, true, 0, variable)}}` : `${child(expression.a, 2)}/${child(expression.b, 3)}`; break;
+    case "pow": result = latex ? `${child(expression.base, 4)}^{${render(expression.exponent, true, 0, variable)}}` : `${child(expression.base, 4)}^${child(expression.exponent, 3)}`; break;
     case "sin": result = latex ? `\\sin\\left(${render(expression.arg, true, 0, variable)}\\right)` : `sin(${render(expression.arg, false, 0, variable)})`; break;
     case "cos": result = latex ? `\\cos\\left(${render(expression.arg, true, 0, variable)}\\right)` : `cos(${render(expression.arg, false, 0, variable)})`; break;
     case "exp": result = latex ? `e^{${render(expression.arg, true, 0, variable)}}` : `exp(${render(expression.arg, false, 0, variable)})`; break;

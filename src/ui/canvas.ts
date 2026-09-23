@@ -1,9 +1,20 @@
 import type { CandidateResult, Point, SolveResult, Viewport } from "../core/types";
+import { MAX_INPUT_POINTS } from "../core/preprocess";
 import { panViewport, screenToWorld, worldToScreen, DEFAULT_VIEWPORT, zoomViewport } from "./viewport";
 
 export type StrokeHandler = (points: Point[]) => void;
 export type StrokeStartHandler = () => void;
 export type StrokeCancelHandler = () => void;
+
+function compactStroke(points: Point[]): Point[] {
+  if (points.length < MAX_INPUT_POINTS) return points;
+  const lastIndex = points.length - 1;
+  const compacted = [points[0]!];
+  for (let index = 2; index < lastIndex; index += 2) compacted.push(points[index]!);
+  const last = points[lastIndex];
+  if (last && compacted.at(-1) !== last) compacted.push(last);
+  return compacted;
+}
 
 export class CoordinateCanvas {
   private viewport: Viewport = { ...DEFAULT_VIEWPORT };
@@ -113,7 +124,10 @@ export class CoordinateCanvas {
     if (!this.drawing) return;
     const world = screenToWorld(screen, this.viewport);
     const previous = this.rawPoints.at(-1);
-    if (!previous || Math.hypot(world.x - previous.x, world.y - previous.y) > 0.004) this.rawPoints.push({ ...world, t: performance.now() });
+    if (!previous || Math.hypot(world.x - previous.x, world.y - previous.y) > 0.004) {
+      this.rawPoints = compactStroke(this.rawPoints);
+      this.rawPoints.push({ ...world, t: performance.now() });
+    }
     this.lastScreen = screen;
     this.draw();
   }
@@ -126,7 +140,13 @@ export class CoordinateCanvas {
 
   private pointerCancel(event: PointerEvent): void {
     if (event.pointerId !== this.pointerId) return;
+    const canceledStroke = this.drawing;
     this.finishPointer(event.pointerId);
+    if (!canceledStroke) return;
+    this.rawPoints = [];
+    this.selected = null;
+    this.parametricCurve = null;
+    this.draw();
     this.onStrokeCancel?.();
   }
 

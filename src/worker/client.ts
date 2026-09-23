@@ -1,4 +1,5 @@
 import type { Point, SolverOptions, Viewport, WorkerRequest, WorkerResponse } from "../core/types";
+import { limitInputPoints } from "../core/preprocess";
 
 export interface WorkerLike {
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null;
@@ -19,31 +20,34 @@ export class SolverWorkerClient {
   public solve(points: readonly Point[], view: Viewport, options: Partial<SolverOptions>, onResponse: ResponseHandler): number {
     this.cancel();
     const id = ++this.sequence;
-    const worker = this.factory();
+    let worker: WorkerLike;
+    try {
+      worker = this.factory();
+    } catch {
+      onResponse({ type: "invalid", id, reason: "The solver worker could not be started. Please reload the page and try again." });
+      return id;
+    }
     this.active = { id, worker };
     worker.onmessage = (event) => {
       const response = event.data;
       if (!response || this.active?.id !== id || this.active.worker !== worker || response.id !== id) return;
-      onResponse(response);
       if (response.type === "done" || response.type === "invalid") {
-        worker.terminate();
-        this.active = null;
+        this.finishWorker(id, worker);
       }
+      onResponse(response);
     };
     worker.onerror = () => {
       if (this.active?.id !== id || this.active.worker !== worker) return;
+      this.finishWorker(id, worker);
       onResponse({ type: "invalid", id, reason: "The solver worker failed. Please draw again." });
-      worker.terminate();
-      this.active = null;
     };
     const { progress: _progress, now: _now, ...serializableOptions } = options;
     try {
-      worker.postMessage({ id, points: [...points], view, options: serializableOptions });
+      worker.postMessage({ id, points: limitInputPoints(points), view, options: serializableOptions });
     } catch {
       if (this.active?.id === id && this.active.worker === worker) {
+        this.finishWorker(id, worker);
         onResponse({ type: "invalid", id, reason: "The stroke could not be sent to the solver worker." });
-        worker.terminate();
-        this.active = null;
       }
     }
     return id;
@@ -52,5 +56,10 @@ export class SolverWorkerClient {
   public cancel(): void {
     this.active?.worker.terminate();
     this.active = null;
+  }
+
+  private finishWorker(id: number, worker: WorkerLike): void {
+    if (this.active?.id === id && this.active.worker === worker) this.active = null;
+    worker.terminate();
   }
 }
