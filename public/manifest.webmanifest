@@ -1,0 +1,11 @@
+{
+  "name":"UnDraw — Hand-drawn Function Finder",
+  "short_name":"UnDraw",
+  "description":"Find the shortest mathematical expression that explains a hand-drawn curve.",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#f5f8fb",
+  "theme_color":"#236aa5",
+  "icons":[{"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}
