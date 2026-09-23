@@ -18,6 +18,17 @@ it('joins collinear strokes when one expression explains both',async()=>{
   expect(result.groups).toHaveLength(1);
   expect(result.groups[0].strokeIndices).toEqual([0,1]);
   expect(result.groups[0].result.balanced.rmse).toBeLessThan(.15);
+  expect(result.groups[0].result.domain[0]).toBeLessThan(-1.9);
+  expect(result.groups[0].result.domain[1]).toBeGreaterThan(1.9);
+  expect(Math.max(...result.groups[0].result.balanced.plot.x)).toBeGreaterThan(1.9);
+});
+
+it('keeps the full domain after repeatedly merging disconnected strokes',async()=>{
+  const strokes=Array.from({length:6},(_,i)=>line(i*1.2,i*1.2+1));
+  const result=await solveStrokesProgressive(strokes,'auto',{timeBudgetMs:0});
+  expect(result.groups).toHaveLength(1);
+  expect(result.groups[0].strokeIndices).toEqual([0,1,2,3,4,5]);
+  expect(result.groups[0].result.domain[1]).toBeGreaterThan(6.9);
 });
 
 it('combines overlapping redraws of the same function',async()=>{

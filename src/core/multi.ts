@@ -1,9 +1,15 @@
 import type {Point,SolverOptions,FitMode,MultiSolveResult,SolveResult} from './types';
 import {solveCurveProgressive,CancelledSolve} from './progressive';
-import {solveCurve} from './solver';
+import {finalizeFunctionResult} from './solver';
 import {classifyStroke} from './validateFunction';
 import {InvalidCurveError} from './preprocess';
 import {evaluate} from '../expr/evaluate';
+import {resampleFunction} from './resample';
+import {normalizeCurve} from './normalize';
+import {CandidatePool} from '../search/candidatePool';
+import {fitPolynomial} from '../models/polynomial';
+import {expressionConstantCost} from '../search/scoring';
+import {operatorComplexity} from '../expr/complexity';
 
 interface Segment {points:Point[];strokeIndex:number;noise:number;stride:number}
 interface Group {atoms:Segment[];result:SolveResult}
@@ -78,6 +84,33 @@ function score(groups:readonly Group[]):number {
   return loss;
 }
 
+/** Fit only observed intervals. The single-stroke resampler discards disconnected islands. */
+function fitMerged(a:Group,b:Group):SolveResult {
+  const atoms=[...a.atoms,...b.atoms];
+  const samples=atoms.flatMap(atom=>{
+    const sampled=resampleFunction(atom.points,Math.min(64,Math.max(24,atom.points.length)));
+    return Array.from(sampled.x,(x,i)=>({x,y:sampled.rawY[i],weight:sampled.weights[i]}));
+  }).sort((a,b)=>a.x-b.x);
+  const x=Float64Array.from(samples,p=>p.x),rawY=Float64Array.from(samples,p=>p.y);
+  const weights=Float64Array.from(samples,p=>p.weight);
+  const domain:[number,number]=[x[0],x.at(-1)!];
+  const noise=Math.max(1e-9,...atoms.map(atom=>atom.noise));
+  const data=normalizeCurve({x,rawY,weights,domain},rawY,noise);
+  const pool=new CandidatePool(data,32);
+  for(const group of [a,b])for(const candidate of [group.result.simple,group.result.balanced,group.result.accurate]){
+    // Existing fitted expressions provide useful nonlinear models without another full search.
+    const freeParameterCount=Math.max(0,Math.round(candidate.complexity-
+      operatorComplexity(candidate.expr)-expressionConstantCost(candidate.expr)));
+    pool.add({expr:candidate.expr,modelFamily:candidate.modelFamily??'Merged',
+      approximation:candidate.approximation,freeParameterCount,params:[]});
+  }
+  for(let degree=0;degree<=4;degree++){
+    const candidate=fitPolynomial(data,degree);
+    if(candidate)pool.add(candidate);
+  }
+  return finalizeFunctionResult(pool,data,performance.now());
+}
+
 async function fitQuick(points:Point[],options:Partial<SolverOptions>,hooks:MultiSolveHooks):Promise<SolveResult> {
   return solveCurveProgressive(points,{...options,timeBudgetMs:0},{
     now:()=>performance.now(),shouldAbort:hooks.shouldAbort,yieldControl:hooks.yieldControl,emit:()=>{},
@@ -85,12 +118,13 @@ async function fitQuick(points:Point[],options:Partial<SolverOptions>,hooks:Mult
 }
 
 async function splitIfSimpler(groups:Group[],options:Partial<SolverOptions>,hooks:MultiSolveHooks,
-  mode:FitMode,skipped:number[]):Promise<void> {
+  mode:FitMode,skipped:number[],deadline:number):Promise<void> {
   let changed=true;
   while(changed){
     changed=false;
     for(let index=0;index<groups.length;index++){
       if(hooks.shouldAbort())throw new CancelledSolve();
+      if(performance.now()>=deadline)return;
       const group=groups[index];
       if(group.atoms.length!==1||group.result.mode!=='function')continue;
       const atom=group.atoms[0];
@@ -100,6 +134,7 @@ async function splitIfSimpler(groups:Group[],options:Partial<SolverOptions>,hook
       if(group.result.balanced.rmse<=Math.max(2.5*atom.noise,.004*(ymax-ymin)))continue;
       let best=score(groups),choice:[Group,Group]|null=null;
       for(const fraction of [.25,.5,.75]){
+        if(performance.now()>=deadline)break;
         const cut=Math.floor((atom.points.length-1)*fraction);
         if(cut<16||atom.points.length-cut<16)continue;
         const left:Segment={...atom,points:atom.points.slice(0,cut+1)};
@@ -122,9 +157,10 @@ async function splitIfSimpler(groups:Group[],options:Partial<SolverOptions>,hook
       hooks.emit(snapshot(groups,mode,skipped));
       if(options.timeBudgetMs!==0)for(const child of choice){
         if(hooks.shouldAbort())throw new CancelledSolve();
+        if(performance.now()>=deadline)break;
         try{
           child.result=await solveCurveProgressive(child.atoms[0].points,
-            {...options,timeBudgetMs:options.timeBudgetMs??500},{
+            {...options,timeBudgetMs:Math.min(500,Math.max(0,deadline-performance.now()))},{
               now:()=>performance.now(),shouldAbort:hooks.shouldAbort,yieldControl:hooks.yieldControl,
               emit:message=>{
                 if(message.result){child.result=message.result;hooks.emit(snapshot(groups,mode,skipped));}
@@ -160,6 +196,8 @@ function compatible(a:Group,b:Group):boolean {
 
 export async function solveStrokesProgressive(strokes:readonly (readonly Point[])[],mode:FitMode,
   options:Partial<SolverOptions>={},hooks:MultiSolveHooks=defaultHooks):Promise<MultiSolveResult> {
+  // A shared deadline prevents the number of strokes from multiplying the search budget.
+  const deadline=performance.now()+(options.timeBudgetMs&&options.timeBudgetMs>0?options.timeBudgetMs:2500);
   const atoms:Segment[]=[];
   for(let i=0;i<strokes.length;i++){
     if(strokes[i].length<8)continue;
@@ -170,10 +208,14 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
   const skipped=strokes.map((_,i)=>i).filter(i=>!atoms.some(atom=>atom.strokeIndex===i));
   if(!atoms.length)throw new InvalidCurveError('too-few-points');
   const groups:Group[]=[];
-  for(const atom of atoms){
+  for(let index=0;index<atoms.length;index++){
+    const atom=atoms[index];
     if(hooks.shouldAbort())throw new CancelledSolve();
     try{
-      const result=await solveCurveProgressive(atom.points,{...options,timeBudgetMs:options.timeBudgetMs??900},{
+      const remaining=atoms.length-index;
+      const budget=options.timeBudgetMs===0?0:Math.min(900,
+        Math.max(0,(deadline-performance.now()-(mode==='auto'?400:0))/remaining));
+      const result=await solveCurveProgressive(atom.points,{...options,timeBudgetMs:budget},{
         now:()=>performance.now(),shouldAbort:hooks.shouldAbort,yieldControl:hooks.yieldControl,
         emit:message=>{
           if(message.result){
@@ -193,20 +235,19 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
   }
   if(!groups.length)throw new InvalidCurveError('no-finite-samples');
   if(mode==='auto'){
-    await splitIfSimpler(groups,options,hooks,mode,skipped);
+    await splitIfSimpler(groups,options,hooks,mode,skipped,deadline);
     let improved=true;
-    while(improved&&groups.length>1){
+    while(improved&&groups.length>1&&performance.now()<deadline){
       improved=false;
       const original=score(groups);
       let bestCost=original,bestPair:[number,number,SolveResult]|null=null;
-      for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
+      pairs:for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
         if(hooks.shouldAbort())throw new CancelledSolve();
+        if(performance.now()>=deadline)break pairs;
         if(!compatible(groups[i],groups[j]))continue;
         const mergedAtoms=[...groups[i].atoms,...groups[j].atoms];
-        const points=mergedAtoms.flatMap(atom=>atom.points).sort((a,b)=>a.x-b.x)
-          .map((p,k)=>({...p,t:k}));
         let result:SolveResult;
-        try{result=solveCurve(points,{...options,maxStructuralComplexity:0,timeBudgetMs:0});}
+        try{result=fitMerged(groups[i],groups[j]);}
         catch{continue;}
         if(result.mode!=='function')continue;
         const merged={atoms:mergedAtoms,result};

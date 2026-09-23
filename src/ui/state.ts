@@ -25,8 +25,9 @@ export function clear(state:UiState):UiState {
 export function undo(state:UiState):UiState {
   if(!state.history.length)return {...state,strokes:[],draft:[],result:null,phase:'idle'};
   const last=state.history.at(-1)!;
-  return {...state,strokes:last.strokes,draft:[],result:last.result,history:state.history.slice(0,-1),
-    phase:last.result?'result':'idle'};
+  const result=last.result?.mode===state.mode?last.result:null;
+  return {...state,strokes:last.strokes,draft:[],result,history:state.history.slice(0,-1),
+    phase:result?'result':'idle'};
 }
 export function selectCandidate(state:UiState,selected:Choice):UiState {
   return {...state,selected};

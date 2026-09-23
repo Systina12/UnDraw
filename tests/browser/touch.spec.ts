@@ -31,6 +31,8 @@ test('two-finger navigation preserves a result and leaves the next touch free to
     await touch('touchMove',[{x:box.x+25+(box.width-50)*i/36,y:centerY-40+80*(1-u*u),id:3}]);
   }
   await touch('touchEnd',[]);
+  await expect(formula).toContainText('2 strokes ready');
+  await page.getByRole('button',{name:'Find functions'}).click();
   await expect.poll(async()=>{
     const plain=await page.locator('[data-plain]').textContent();
     const disabled=await page.getByRole('button',{name:'Copy LaTeX'}).isDisabled();
