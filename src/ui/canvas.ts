@@ -73,5 +73,12 @@ export function renderPlane(ctx: CanvasRenderingContext2D, transform: ViewportTr
     const x = transform.worldToScreen(n * xStep, 0).x;
     ctx.fillText(Number((n * xStep).toPrecision(4)).toString(), x + 3, Math.min(height - 5, Math.max(15, transform.worldToScreen(0, 0).y + 15)));
   }
+  const labelX=Math.min(width-35,Math.max(4,transform.worldToScreen(0,0).x+5));
+  for(let n=Math.ceil(view.yMin/yStep);n*yStep<=view.yMax;n++){
+    if(n===0)continue;
+    const y=transform.worldToScreen(0,n*yStep).y;
+    if(y<12||y>height-5)continue;
+    ctx.fillText(Number((n*yStep).toPrecision(4)).toString(),labelX,y-3);
+  }
   ctx.restore();
 }

@@ -36,6 +36,7 @@ it('imports a locally detected contour as a stroke and waits for Find functions'
     input.dispatchEvent(new Event('change'));
     await vi.waitFor(()=>expect(root.querySelector('[data-image-status]')?.textContent)
       .toContain('1 edges detected'));
+    expect(root.querySelector('[data-image-status]')?.textContent).toContain('120 × 80 px');
     expect(messages).toHaveLength(1);
     expect(root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.disabled).toBe(true);
     const pointer=(type:string,id:number,x:number,y:number)=>canvas.dispatchEvent(Object.assign(new Event(type),{
@@ -47,6 +48,11 @@ it('imports a locally detected contour as a stroke and waits for Find functions'
     root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.click();
     expect(messages[1].strokes).toHaveLength(1);
     expect(messages[1].strokes![0].length).toBe(90);
+    const start=messages[1].strokes![0][0] as {x:number;y:number};
+    const end=messages[1].strokes![0][89] as {x:number;y:number};
+    expect(start.x).toBeCloseTo(15.5);
+    expect(end.x).toBeCloseTo(104.5);
+    expect(start.y).toBeCloseTo(49.5);
     root.querySelector<HTMLButtonElement>('[data-action="undo"]')!.click();
     expect(root.querySelector('[data-formula]')!.textContent).toContain('Draw one or more strokes');
     pointer('pointerdown',2,160,85);pointer('pointerup',2,160,85);
