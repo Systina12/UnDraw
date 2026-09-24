@@ -46,3 +46,17 @@ it('clips fitted curves and breaks the line between disconnected sample islands'
   expect(vi.mocked(ctx.lineTo).mock.calls.some(atGap)).toBe(false);
   expect(ctx.lineTo).toHaveBeenCalledWith(700,150);
 });
+
+it('uses the original strokes to mask a fit sampled across an empty interval',()=>{
+  const ctx={save:vi.fn(),restore:vi.fn(),setTransform:vi.fn(),setLineDash:vi.fn(),
+    beginPath:vi.fn(),rect:vi.fn(),clip:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn(),stroke:vi.fn()} as unknown as CanvasRenderingContext2D;
+  const view=new ViewportTransform({xMin:-5,xMax:5,yMin:-5,yMax:5},1000,500);
+  const result={plot:{x:[-2,-1.5,-1,-.5,0,.5,1,1.5,2],y:[0,0,0,0,0,0,0,0,0]}} as CandidateResult;
+  drawFittedPlot(ctx,result,view,2,'#236aa5',[[-2,-1],[1,2]]);
+  expect(ctx.moveTo).toHaveBeenCalledWith(600,250);
+  expect(ctx.lineTo).not.toHaveBeenCalledWith(450,250);
+  expect(ctx.lineTo).not.toHaveBeenCalledWith(500,250);
+  expect(ctx.lineTo).not.toHaveBeenCalledWith(550,250);
+  expect(ctx.lineTo).not.toHaveBeenCalledWith(600,250);
+  expect(ctx.lineTo).toHaveBeenCalledWith(700,250);
+});

@@ -82,7 +82,16 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     const colors=['#236aa5','#137f79','#8152aa','#b46920','#2772ac'];
     state.strokes.forEach(stroke=>drawStroke(ctx,stroke,view,dpr));
     drawStroke(ctx,state.draft,view,dpr);
-    state.result?.groups.forEach((group,i)=>drawFittedPlot(ctx,group.result[state.selected],view,dpr,colors[i%colors.length]));
+    state.result?.groups.forEach((group,i)=>{
+      const support=group.result.mode==='function'?group.strokeIndices.flatMap(index=>{
+        const stroke=state.strokes[index];
+        if(!stroke?.length)return [];
+        let min=Infinity,max=-Infinity;
+        for(const point of stroke){min=Math.min(min,point.x);max=Math.max(max,point.x);}
+        return [[min,max] as const];
+      }):undefined;
+      drawFittedPlot(ctx,group.result[state.selected],view,dpr,colors[i%colors.length],support);
+    });
   };
   const update=()=>{
     if(state.result){
