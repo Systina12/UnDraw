@@ -240,7 +240,10 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
   // Decide how to group strokes using the original fits. Presentation preferences apply afterward.
   const fitOptions:Partial<SolverOptions>={...options,simplify:{enabled:false}};
   // A shared deadline prevents the number of strokes from multiplying the search budget.
-  const deadline=performance.now()+(options.timeBudgetMs&&options.timeBudgetMs>0?options.timeBudgetMs:2500);
+  // An explicit zero skips extended per-stroke search; grouping still needs time to inspect
+  // every compatible pair, especially when there are many short strokes on a slow device.
+  const deadline=options.timeBudgetMs===0?Infinity:
+    performance.now()+(options.timeBudgetMs&&options.timeBudgetMs>0?options.timeBudgetMs:2500);
   const atoms:Segment[]=[];
   for(let i=0;i<strokes.length;i++){
     if(strokes[i].length<8)continue;

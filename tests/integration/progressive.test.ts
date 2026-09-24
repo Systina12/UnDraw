@@ -17,7 +17,8 @@ it('emits a fast usable result then finalizes',async()=>{
 });
 it('reports real phase timings without interfering with progressive results',async()=>{
   const phases=new Map<string,number>();
-  const result=await solveCurveProgressive(makeStroke(x=>x*x,{min:-2,max:2,seed:9}),{}, {
+  const result=await solveCurveProgressive(makeStroke(x=>x*x,{min:-2,max:2,seed:9}),
+    {timeBudgetMs:20000}, {
     now:()=>performance.now(),shouldAbort:()=>false,yieldControl:async()=>{},emit:()=>{},
     onPhase:(name,elapsedMs)=>{phases.set(name,(phases.get(name)??0)+elapsedMs);},
   });
