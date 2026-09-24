@@ -45,6 +45,10 @@ it('clips fitted curves and breaks the line between disconnected sample islands'
   expect(vi.mocked(ctx.moveTo).mock.calls.some(atGap)).toBe(true);
   expect(vi.mocked(ctx.lineTo).mock.calls.some(atGap)).toBe(false);
   expect(ctx.lineTo).toHaveBeenCalledWith(700,150);
+  expect(ctx.setLineDash).toHaveBeenCalledWith([7,5]);
+  expect(ctx.stroke).toHaveBeenCalledTimes(2);
+  expect(ctx.strokeStyle).toBe('#075cd5');
+  expect(ctx.lineWidth).toBe(3.2);
 });
 
 it('uses the original strokes to mask a fit sampled across an empty interval',()=>{

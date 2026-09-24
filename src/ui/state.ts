@@ -10,7 +10,7 @@ export interface UiState extends UiSnapshot {
   history:UiSnapshot[];
 }
 export function createUiState():UiState {
-  return {phase:'idle',strokes:[],draft:[],result:null,mode:'per-stroke',selected:'balanced',history:[]};
+  return {phase:'idle',strokes:[],draft:[],result:null,mode:'per-stroke',selected:'accurate',history:[]};
 }
 export function appendStroke(state:UiState,stroke:Point[]):UiState {
   if(stroke.length<2)return {...state,draft:[],phase:state.result?'result':'idle'};

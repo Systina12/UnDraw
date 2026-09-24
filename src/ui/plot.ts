@@ -1,9 +1,9 @@
 import type {CandidateResult} from '../core/types';
 import type {ViewportTransform} from './viewport';
 export function drawFittedPlot(ctx:CanvasRenderingContext2D,result:CandidateResult,view:ViewportTransform,dpr:number,
-  color='#236aa5',support?:readonly (readonly [number,number])[]):void {
+  color='#075cd5',support?:readonly (readonly [number,number])[],halo='#fff'):void {
   ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.lineJoin='round';ctx.lineCap='round';
   ctx.setLineDash([7,5]);
   ctx.beginPath();ctx.rect(0,0,view.width,view.height);ctx.clip();
   ctx.beginPath();let connected=false;
@@ -26,5 +26,8 @@ export function drawFittedPlot(ctx:CanvasRenderingContext2D,result:CandidateResu
     if(connected)ctx.lineTo(point.x,point.y);else ctx.moveTo(point.x,point.y);
     previous=point;connected=true;
   }
-  ctx.stroke();ctx.restore();
+  // A same-pattern underlay keeps the dashed fit legible over photos, gridlines and strokes.
+  ctx.strokeStyle=halo;ctx.lineWidth=6.5;ctx.stroke();
+  ctx.strokeStyle=color;ctx.lineWidth=3.2;ctx.stroke();
+  ctx.restore();
 }

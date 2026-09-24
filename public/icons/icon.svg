@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="UnDraw graph icon">
-  <rect width="192" height="192" rx="40" fill="#236aa5"/>
-  <path d="M36 96h120M96 36v120" fill="none" stroke="#a8d4f6" stroke-width="3" opacity=".7"/>
-  <path d="M23 119c24 0 25-72 48-72s26 95 48 95 25-72 50-72" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="192" height="192" rx="40" fill="#172942"/>
+  <path d="M36 96h120M96 36v120" fill="none" stroke="#93aec9" stroke-width="3" opacity=".7"/>
+  <path d="M23 119c24 0 25-72 48-72s26 95 48 95 25-72 50-72" fill="none" stroke="#81d6ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

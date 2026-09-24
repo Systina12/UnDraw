@@ -9,7 +9,7 @@ function chosenQuality(result:SolveResult,kind:Choice):SolveResult['quality']{
   const candidate=result[kind];
   return qualityFromError(candidate.rmse,result.noise,candidate.approximation);
 }
-export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='balanced'):CandidateResult {
+export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='accurate'):CandidateResult {
   const candidate=result[kind];
   const target=root.querySelector<HTMLElement>('[data-formula]');
   const quality=root.querySelector<HTMLElement>('[data-quality]');
@@ -27,13 +27,14 @@ export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='b
   return candidate;
 }
 
-export function renderMultiFormula(root:HTMLElement,batch:MultiSolveResult,kind:Choice='balanced'):void {
+export function renderMultiFormula(root:HTMLElement,batch:MultiSolveResult,kind:Choice='accurate'):void {
   const target=root.querySelector<HTMLElement>('[data-formula]');
   const quality=root.querySelector<HTMLElement>('[data-quality]');
   if(target){
     target.replaceChildren();
     batch.groups.forEach((group,index)=>{
       const row=document.createElement('div');row.className='formula-row';
+      row.style.setProperty('--series-color',`var(--fit-${index%5})`);
       const label=document.createElement('span');label.className='formula-label';
       label.textContent=batch.mode==='per-stroke'?`Stroke ${group.strokeIndices[0]+1}`:
         `Function ${index+1} · stroke${group.strokeIndices.length===1?'':'s'} ${group.strokeIndices.map(i=>i+1).join(', ')}`;

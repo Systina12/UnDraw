@@ -21,7 +21,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       <span class="legend-fit"></span> Fitted function</div><span class="gesture-hint">Draw · Shift-drag to pan · Scroll to zoom</span>
       <span class="touch-hint">One finger draws · Two fingers move or zoom</span></div>
       <canvas aria-label="Coordinate plane" aria-description="Draw multiple curves with a mouse or one finger. Use two fingers to move or zoom." tabindex="0"></canvas>
-      <div class="image-controls">
+      <div class="canvas-bottom"><div class="image-controls">
         <label class="upload-button">↑ Upload image<input type="file" data-image-file
           accept="image/png,image/jpeg,image/webp,image/bmp" aria-label="Upload image"></label>
         <span data-image-status role="status">Import an image to detect its edges on this device.</span>
@@ -29,11 +29,15 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
           <option value="normal" selected>Normal</option><option value="high">High</option></select></label>
         <button type="button" data-action="image-tool" hidden>Draw by hand</button>
         <button type="button" data-action="remove-image" hidden>Remove image</button>
-      </div>
+      </div><div class="toolbar" role="group" aria-label="Canvas controls">
+        <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>
+        <button type="button" data-action="clear" title="Clear the stroke">✕ Clear</button>
+        <button type="button" data-action="reset-view" title="Reset coordinate view">⌗ Reset view</button>
+      </div></div>
       <div class="fit-controls">
         <fieldset class="fit-modes"><legend>How many functions?</legend>
-          <label><input type="radio" name="fit-mode" value="per-stroke" checked> One per stroke</label>
-          <label><input type="radio" name="fit-mode" value="auto"> Best fit · auto count</label>
+          <div class="mode-options"><label><input type="radio" name="fit-mode" value="per-stroke" checked> One per stroke</label>
+          <label><input type="radio" name="fit-mode" value="auto"> Best fit · auto count</label></div>
         </fieldset>
         <button type="button" data-action="fit" class="fit-button" disabled>Find functions</button>
       </div>
@@ -53,18 +57,13 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         </fieldset>
         <p>Coefficient rounding can use up to one quarter of the selected limit for each disabled change type. Shift, Scale and Reshape permit larger changes. Accurate keeps the original fit. Limit measures RMS change against half the drawn height (or parametric half-diagonal).</p>
       </details>
-      <div class="toolbar" role="group" aria-label="Canvas controls">
-        <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>
-        <button type="button" data-action="clear" title="Clear the stroke">✕ Clear</button>
-        <button type="button" data-action="reset-view" title="Reset coordinate view">⌗ Reset view</button>
-      </div></div>
-    <section class="result" aria-live="polite" aria-label="Function finder result">
-      <div class="choices" role="group" aria-label="Choose a candidate">
-        <button type="button" data-choice="simple" aria-pressed="false">Simple</button>
-        <button type="button" data-choice="balanced" aria-pressed="true">Balanced</button>
-        <button type="button" data-choice="accurate" aria-pressed="false">Accurate</button>
       </div>
-      <div class="eyebrow">THE EXPRESSION</div>
+    <section class="result" aria-live="polite" aria-label="Function finder result">
+      <div class="result-header"><div class="eyebrow">THE EXPRESSION</div><div class="choices" role="group" aria-label="Choose a candidate">
+        <button type="button" data-choice="simple" aria-pressed="false">Simple</button>
+        <button type="button" data-choice="balanced" aria-pressed="false">Balanced</button>
+        <button type="button" data-choice="accurate" aria-pressed="true">Accurate</button>
+      </div></div>
       <div data-formula data-testid="formula" class="formula">Draw one or more strokes</div>
       <p data-quality class="quality">Click Find functions when your drawing is ready.</p>
       <p data-plain class="plain-text"></p>
@@ -97,11 +96,16 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     if(canvas.width!==targetWidth||canvas.height!==targetHeight){canvas.width=targetWidth;canvas.height=targetHeight;}
     const ctx=canvas.getContext('2d');
     if(!ctx)return;
-    renderPlane(ctx,view,dpr);
+    const palette=getComputedStyle(root);
+    const token=(name:string,fallback:string)=>palette.getPropertyValue(name).trim()||fallback;
+    renderPlane(ctx,view,dpr,{grid:token('--grid-color','#e5edf5'),
+      axis:token('--axis-color','#91a4b8'),label:token('--grid-label','#61768c')});
     if(image)paintImage(ctx,image,view,dpr,selectedContours());
-    const colors=['#236aa5','#137f79','#8152aa','#b46920','#2772ac'];
-    state.strokes.forEach(stroke=>drawStroke(ctx,stroke,view,dpr));
-    drawStroke(ctx,state.draft,view,dpr);
+    const color=(index:number)=>token(`--fit-${index%5}`,'#075cd5');
+    const halo=token('--fit-halo','#fff');
+    const strokeColor=token('--stroke-ink','#d4574b');
+    state.strokes.forEach(stroke=>drawStroke(ctx,stroke,view,dpr,strokeColor));
+    drawStroke(ctx,state.draft,view,dpr,strokeColor);
     state.result?.groups.forEach((group,i)=>{
       const support=group.result.mode==='function'?group.strokeIndices.flatMap(index=>{
         const stroke=state.strokes[index];
@@ -110,7 +114,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         for(const point of stroke){min=Math.min(min,point.x);max=Math.max(max,point.x);}
         return [[min,max] as const];
       }):undefined;
-      drawFittedPlot(ctx,group.result[state.selected],view,dpr,colors[i%colors.length],support);
+      drawFittedPlot(ctx,group.result[state.selected],view,dpr,color(i),support,halo);
     });
   };
   const update=()=>{
@@ -192,6 +196,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   };
   if(typeof ResizeObserver==='function')new ResizeObserver(draw).observe(canvas);
   else window.addEventListener('resize',draw);
+  window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',draw);
   canvas.addEventListener('wheel',event=>{
     if(drawing)return;
     event.preventDefault();
@@ -282,7 +287,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   root.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[data-simplify]').forEach(input=>input.addEventListener('change',()=>{
     root.querySelector<HTMLFieldSetElement>('[data-simplicity-options]')!.disabled=
       !root.querySelector<HTMLInputElement>('[data-simplify="enabled"]')!.checked;
-    cancel();state={...state,result:null,phase:'idle',selected:'balanced'};update();
+    cancel();state={...state,result:null,phase:'idle',selected:'accurate'};update();
   }));
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>button.addEventListener('click',()=>{
     state=selectCandidate(state,button.dataset.choice as Choice);update();
