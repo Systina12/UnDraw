@@ -14,6 +14,7 @@ import {operatorComplexity} from '../expr/complexity';
 import {createParametricAxisPool,finalizeParametricResult} from './parametric';
 import {substituteVariable} from '../expr/substitute';
 import {variable} from '../expr/ast';
+import type {Expr} from '../expr/ast';
 
 interface Segment {points:Point[];strokeIndex:number;noise:number;stride:number}
 interface Group {atoms:Segment[];result:SolveResult}
@@ -100,21 +101,45 @@ function mergedData(atoms:Segment[]){
   const noise=Math.max(1e-9,...atoms.map(atom=>atom.noise));
   return normalizeCurve({x,rawY,weights,domain},rawY,noise);
 }
+/** A disconnected drawing gives no evidence for a pole or a large excursion between strokes. */
+function safeBetweenStrokes(expr:Expr,atoms:Segment[],data:ReturnType<typeof mergedData>):boolean {
+  const intervals=atoms.map(atom=>{
+    let min=Infinity,max=-Infinity;
+    for(const point of atom.points){min=Math.min(min,point.x);max=Math.max(max,point.x);}
+    return [min,max] as const;
+  }).sort((a,b)=>a[0]-b[0]);
+  const ymin=Math.min(...data.rawY),ymax=Math.max(...data.rawY);
+  const margin=Math.max(.5*(ymax-ymin),10*data.sigmaDraw,.05);
+  let right=intervals[0][1];
+  for(const [start,end] of intervals.slice(1)){
+    if(start>right){
+      for(let i=0;i<=20;i++){
+        const prediction=evaluate(expr,right+(start-right)*i/20);
+        if(!prediction.valid||!Number.isFinite(prediction.value)||
+          prediction.value<ymin-margin||prediction.value>ymax+margin)return false;
+      }
+    }
+    right=Math.max(right,end);
+  }
+  return true;
+}
 function fitMerged(a:Group,b:Group):SolveResult {
-  const data=mergedData([...a.atoms,...b.atoms]);
+  const atoms=[...a.atoms,...b.atoms];
+  const data=mergedData(atoms);
   const pool=new CandidatePool(data,32);
   for(const group of [a,b])for(const candidate of [group.result.simple,group.result.balanced,group.result.accurate]){
     // Existing fitted expressions provide useful nonlinear models without another full search.
     const freeParameterCount=Math.max(0,Math.round(candidate.complexity-
       operatorComplexity(candidate.expr)-expressionConstantCost(candidate.expr)));
-    pool.add({expr:candidate.expr,modelFamily:candidate.modelFamily??'Merged',
+    if(safeBetweenStrokes(candidate.expr,atoms,data))pool.add({expr:candidate.expr,modelFamily:candidate.modelFamily??'Merged',
       approximation:candidate.approximation,freeParameterCount,params:[]});
   }
   for(let degree=0;degree<=4;degree++){
     const candidate=fitPolynomial(data,degree);
-    if(candidate)pool.add(candidate);
+    if(candidate&&safeBetweenStrokes(candidate.expr,atoms,data))pool.add(candidate);
   }
-  return finalizeFunctionResult(pool,data,performance.now());
+  return finalizeFunctionResult(pool,data,performance.now(),'completed',undefined,
+    expr=>safeBetweenStrokes(expr,atoms,data));
 }
 
 async function fitQuick(points:Point[],options:Partial<SolverOptions>,hooks:MultiSolveHooks):Promise<SolveResult> {
@@ -184,14 +209,24 @@ function compatible(a:Group,b:Group):boolean {
   if(a.result.mode!=='function'||b.result.mode!=='function')return false;
   const [amin,amax]=a.result.domain,[bmin,bmax]=b.result.domain;
   const overlap=Math.min(amax,bmax)-Math.max(amin,bmin);
-  if(overlap<=0){
-    const gap=Math.max(amin,bmin)-Math.min(amax,bmax);
-    return gap<=1.5*Math.max(amax-amin,bmax-bmin);
-  }
   const points=[...a.atoms,...b.atoms].flatMap(s=>s.points);
   let ymin=Infinity,ymax=-Infinity;
   for(const p of points){ymin=Math.min(ymin,p.y);ymax=Math.max(ymax,p.y);}
   const tolerance=Math.max(.08*(ymax-ymin),4*a.result.noise,4*b.result.noise,.02);
+  if(overlap<=0){
+    const gap=Math.max(amin,bmin)-Math.min(amax,bmax);
+    if(gap>1.5*Math.max(amax-amin,bmax-bmin))return false;
+    // Two independently fitted expressions should agree when extended across an unobserved gap.
+    // Otherwise a low-degree interpolation can connect unrelated strokes arbitrarily.
+    const left=Math.min(amax,bmax);
+    for(let i=0;i<=4;i++){
+      const x=left+gap*i/4;
+      const first=evaluate(a.result.balanced.expr,x),second=evaluate(b.result.balanced.expr,x);
+      if(!first.valid||!second.valid||!Number.isFinite(first.value)||!Number.isFinite(second.value)||
+        Math.abs(first.value-second.value)>tolerance)return false;
+    }
+    return true;
+  }
   for(let i=0;i<=8;i++){
     const x=Math.max(amin,bmin)+overlap*i/8;
     const left=evaluate(a.result.balanced.expr,x),right=evaluate(b.result.balanced.expr,x);
@@ -308,7 +343,8 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
           approximation:candidate.approximation,freeParameterCount});
       }
       const simplified=finalizeFunctionResult(pool,curve,performance.now(),
-        group.result.diagnostics.stopReason,options.simplify);
+        group.result.diagnostics.stopReason,options.simplify,
+        group.atoms.length>1?expr=>safeBetweenStrokes(expr,group.atoms,curve):undefined);
       group.result={...simplified,diagnostics:group.result.diagnostics};
       hooks.emit(snapshot(groups,mode,skipped));
       await hooks.yieldControl();

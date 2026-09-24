@@ -23,6 +23,18 @@ it('joins collinear strokes when one expression explains both',async()=>{
   expect(Math.max(...result.groups[0].result.balanced.plot.x)).toBeGreaterThan(1.9);
 });
 
+it('keeps a separate line beside an S-shaped trace in automatic mode',async()=>{
+  const s=makeStroke(x=>1.4*Math.tanh(2.3*(x+2.75)),
+    {min:-4,max:-1.5,count:70,noise:.004,seed:17});
+  const unrelated=makeStroke(x=>-.7*x+.2,{min:.1,max:2.1,count:60,noise:.004,seed:24});
+  const result=await solveStrokesProgressive([s,unrelated],'auto',{timeBudgetMs:0});
+  expect(result.groups.some(group=>group.strokeIndices.join(',')==='0,1')).toBe(false);
+  expect(result.groups.some(group=>group.strokeIndices.join(',')==='1')).toBe(true);
+  for(const group of result.groups){
+    expect(group.result.balanced.plot.y.every(Number.isFinite)).toBe(true);
+  }
+});
+
 it('keeps the full domain after repeatedly merging disconnected strokes',async()=>{
   const strokes=Array.from({length:6},(_,i)=>line(i*1.2,i*1.2+1));
   const result=await solveStrokesProgressive(strokes,'auto',{timeBudgetMs:0});
