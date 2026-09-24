@@ -13,7 +13,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   root.innerHTML=`<main class="app-shell">
     <header class="topbar"><div class="brand"><div class="brand-mark" aria-hidden="true">∿</div>
       <div><h1>UnDraw</h1><p>Sketch a curve. Find its function.</p></div></div>
-      <span class="privacy-badge" title="All fitting runs in a browser Web Worker">● All on your device</span></header>
+      <span class="privacy-badge" title="All fitting runs in a browser Web Worker">● Fitting on your device</span></header>
     <div class="workspace"><div class="canvas-topline"><div class="legend"><span class="legend-ink"></span> Your stroke
       <span class="legend-fit"></span> Fitted function</div><span class="gesture-hint">Draw · Shift-drag to pan · Scroll to zoom</span>
       <span class="touch-hint">One finger draws · Two fingers move or zoom</span></div>
@@ -57,7 +57,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       <p data-plain class="plain-text"></p>
       <div class="copy-actions"><button type="button" data-action="copy-latex">Copy LaTeX</button>
         <button type="button" data-action="copy-plain">Copy expression</button></div>
-    </section><footer>Hand-drawn math · No upload · No account</footer>
+    </section><footer>Hand-drawn math · Sketches stay on your device · Page analytics · No account</footer>
   </main>`;
   const canvas=root.querySelector('canvas')!;
   if(!root.isConnected)return canvas;
