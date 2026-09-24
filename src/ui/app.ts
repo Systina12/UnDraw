@@ -147,9 +147,10 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       const contours=await edgeWorker.detect(reference,detail);
       if(version!==imageVersion||image!==reference)return;
       reference.contours=contours;draw();
+      const size=`${reference.bounds.xMax} × ${reference.bounds.yMax} px · (0, 0) bottom left`;
       imageStatus.textContent=contours.length?
-        `${contours.length} edges detected · Tap a highlighted edge to add it as a stroke.`:
-        'No clear edges found. Try High detail or draw over the image.';
+        `${size} · ${contours.length} edges detected · Tap a highlighted edge to add it as a stroke.`:
+        `${size} · No clear edges found. Try High detail or draw over the image.`;
     }catch(error){
       if(version!==imageVersion)return;
       imageStatus.textContent=error instanceof Error?error.message:'Edge detection failed.';
@@ -250,9 +251,10 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     if(!file)return;
     const version=++imageVersion;edgeWorker.cancel();
     imageStatus.textContent='Opening image…';
-    void loadImage(file,view).then(reference=>{
+    void loadImage(file).then(reference=>{
       if(version!==imageVersion){reference.bitmap.close();return;}
       cancel();image?.bitmap.close();image=reference;imported.clear();
+      view.fitImage(reference.bounds.xMax,reference.bounds.yMax);
       state={...createUiState(),mode:state.mode};selectEdges=true;refreshImageControls();update();
       void detect(root.querySelector<HTMLSelectElement>('[data-image-detail] select')!.value as EdgeDetail);
     }).catch(error=>{

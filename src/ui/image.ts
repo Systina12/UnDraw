@@ -1,4 +1,4 @@
-import {ViewportTransform} from './viewport';
+import type {ViewportTransform} from './viewport';
 import type {Point} from '../core/types';
 import type {EdgeDetail,ImageContour} from '../image/edges';
 
@@ -11,13 +11,14 @@ export interface ImageReference {
   pixels:Uint8ClampedArray;
 }
 
-export async function loadImage(file:File,view:ViewportTransform):Promise<ImageReference> {
+export async function loadImage(file:File):Promise<ImageReference> {
   if(!['image/png','image/jpeg','image/webp','image/bmp'].includes(file.type)||file.size>12*1024*1024)
     throw new Error('Choose a PNG, JPEG, WebP or BMP image under 12 MB.');
   const source=await createImageBitmap(file);
   try{
-    if(!source.width||!source.height||source.width*source.height>12_000_000)
-      throw new Error('Image dimensions must be smaller than 12 megapixels.');
+    if(source.width<8||source.height<8||source.width>20_000||source.height>20_000||
+      source.width*source.height>12_000_000)
+      throw new Error('Image must be at least 8 × 8 and no larger than 12 megapixels.');
     const ratio=Math.min(1,900/source.width,900/source.height);
     const width=Math.max(8,Math.round(source.width*ratio));
     const height=Math.max(8,Math.round(source.height*ratio));
@@ -27,19 +28,17 @@ export async function loadImage(file:File,view:ViewportTransform):Promise<ImageR
     context.fillStyle='#fff';context.fillRect(0,0,width,height);
     context.drawImage(source,0,0,width,height);
     const pixels=context.getImageData(0,0,width,height).data;
-    const scale=Math.min(.85*view.width/width,.85*view.height/height);
-    const left=(view.width-width*scale)/2,top=(view.height-height*scale)/2;
-    const start=view.screenToWorld(left,top),end=view.screenToWorld(left+width*scale,top+height*scale);
     const bitmap=await createImageBitmap(scratch);
-    return {bitmap,width,height,pixels,bounds:{xMin:start.x,xMax:end.x,yMin:end.y,yMax:start.y},
+    return {bitmap,width,height,pixels,
+      bounds:{xMin:0,xMax:source.width,yMin:0,yMax:source.height},
       contours:[]};
   }finally{source.close();}
 }
 
 export function imageToWorld(image:ImageReference,x:number,y:number):{x:number;y:number}{
   const {xMin,xMax,yMin,yMax}=image.bounds;
-  return {x:xMin+x/(image.width-1)*(xMax-xMin),
-    y:yMax-y/(image.height-1)*(yMax-yMin)};
+  return {x:xMin+(x+.5)/image.width*(xMax-xMin),
+    y:yMax-(y+.5)/image.height*(yMax-yMin)};
 }
 
 export function contourToStroke(image:ImageReference,contour:ImageContour):Point[]{

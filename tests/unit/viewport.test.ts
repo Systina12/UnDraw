@@ -39,4 +39,26 @@ describe('ViewportTransform', () => {
     expect(view.current.xMax - view.current.xMin).toBeCloseTo(1e6, 3);
     expect(() => new ViewportTransform(initial, 0, 100)).toThrow(RangeError);
   });
+
+  it('fits original image pixels with equal x and y scale, including after resizing',()=>{
+    const view=new ViewportTransform(initial,600,300);
+    view.fitImage(4000,2000);
+    expect(view.worldToScreen(2000,1000)).toEqual({x:300,y:150});
+    expect(view.current.xMin).toBeLessThan(0);
+    expect(view.current.xMax).toBeGreaterThan(4000);
+    expect(view.current.yMax).toBeGreaterThan(2000);
+    expect((view.current.xMax-view.current.xMin)/600)
+      .toBeCloseTo((view.current.yMax-view.current.yMin)/300,12);
+    view.pan(36,12);
+    const center=view.screenToWorld(300,150);
+    view.resize(300,600);
+    expect(view.screenToWorld(150,300).x).toBeCloseTo(center.x,10);
+    expect(view.screenToWorld(150,300).y).toBeCloseTo(center.y,10);
+    expect((view.current.xMax-view.current.xMin)/300)
+      .toBeCloseTo((view.current.yMax-view.current.yMin)/600,12);
+    view.reset();
+    expect(view.worldToScreen(2000,1000)).toEqual({x:150,y:300});
+    expect(view.current.xMin).toBeLessThan(0);
+    expect(view.current.yMax).toBeGreaterThan(2000);
+  });
 });
