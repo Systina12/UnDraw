@@ -35,6 +35,27 @@ it('keeps a separate line beside an S-shaped trace in automatic mode',async()=>{
   }
 });
 
+it('does not join the folded branches of two separated strokes',async()=>{
+  // Recreates the left S and the right hook in the reported mobile drawing.
+  const stroke=(control:readonly (readonly [number,number])[])=>control.slice(0,-1)
+    .flatMap(([x,y],i)=>Array.from({length:10},(_,step)=>{
+      const fraction=step/10;
+      return {x:x+(control[i+1][0]-x)*fraction,
+        y:y+(control[i+1][1]-y)*fraction,t:i*10+step};
+    }));
+  const left=stroke([[-1.22,2.72],[-2.64,2.16],[-2.75,1.3],[-2.58,.62],[-2.23,0],
+    [-.66,-1.42],[-.16,-1.94],[-1.27,-2.72],[-2.32,-2.9],[-3.62,-2.58]]);
+  const right=stroke([[2.36,2.04],[2.83,.98],[3.27,-.23],[3.48,-1.45],
+    [3.48,-2.45],[3.26,-3.28],[3,-3.82]]);
+  const result=await solveStrokesProgressive([left,right],'auto',{timeBudgetMs:1200});
+  expect(result.groups.length).toBeGreaterThanOrEqual(2);
+  expect(result.groups.every(group=>group.strokeIndices.length===1)).toBe(true);
+  for(const group of result.groups){
+    const xs=group.result.balanced.plot.x;
+    expect(xs.every(x=>group.strokeIndices[0]===0?x<0:x>2)).toBe(true);
+  }
+});
+
 it('keeps the full domain after repeatedly merging disconnected strokes',async()=>{
   const strokes=Array.from({length:6},(_,i)=>line(i*1.2,i*1.2+1));
   const result=await solveStrokesProgressive(strokes,'auto',{timeBudgetMs:0});

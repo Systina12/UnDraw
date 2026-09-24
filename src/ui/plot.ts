@@ -1,7 +1,7 @@
 import type {CandidateResult} from '../core/types';
 import type {ViewportTransform} from './viewport';
 export function drawFittedPlot(ctx:CanvasRenderingContext2D,result:CandidateResult,view:ViewportTransform,dpr:number,
-  color='#236aa5'):void {
+  color='#236aa5',support?:readonly (readonly [number,number])[]):void {
   ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';
   ctx.setLineDash([7,5]);
@@ -16,6 +16,9 @@ export function drawFittedPlot(ctx:CanvasRenderingContext2D,result:CandidateResu
   for(let i=0;i<result.plot.x.length;i++){
     const x=result.plot.x[i],y=result.plot.y[i];
     if(!Number.isFinite(x)||!Number.isFinite(y)){connected=false;previous=null;continue;}
+    if(support?.length&&!support.some(([min,max])=>x>=min&&x<=max)){
+      connected=false;previous=null;continue;
+    }
     const point=view.worldToScreen(x,y);
     if(!Number.isFinite(point.x)||!Number.isFinite(point.y)){connected=false;previous=null;continue;}
     if(i>0&&!result.parametric&&x-xs[i-1]>4*typicalStep)connected=false;
