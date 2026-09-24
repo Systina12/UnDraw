@@ -1,4 +1,5 @@
 import type {CurveData} from '../core/normalize';
+import type {Expr} from '../expr/ast';
 import type {Candidate,CandidateDraft} from './producer';
 import {evaluate} from '../expr/evaluate';
 import {simplify} from '../expr/simplify';
@@ -6,6 +7,27 @@ import {structuralHash} from '../expr/canonical';
 import {operatorComplexity} from '../expr/complexity';
 import {expressionCost,expressionConstantCost,scoreMdl} from './scoring';
 import {paretoPrune} from './pareto';
+import {displayExpr} from '../expr/display';
+
+function dependsOnX(expr:Expr):boolean {
+  if(expr.kind==='var')return true;
+  if(expr.kind==='const')return false;
+  if(expr.kind==='add'||expr.kind==='mul')return expr.args.some(dependsOnX);
+  if(expr.kind==='div')return dependsOnX(expr.a)||dependsOnX(expr.b);
+  if(expr.kind==='pow')return dependsOnX(expr.base)||dependsOnX(expr.exponent);
+  return 'arg' in expr&&dependsOnX(expr.arg);
+}
+
+function variableDenominators(expr:Expr,output:Expr[]=[]):Expr[] {
+  if(expr.kind==='div'){
+    if(dependsOnX(expr.b))output.push(expr.b);
+    variableDenominators(expr.a,output);variableDenominators(expr.b,output);
+  }else if(expr.kind==='add'||expr.kind==='mul')expr.args.forEach(arg=>variableDenominators(arg,output));
+  else if(expr.kind==='pow'){
+    variableDenominators(expr.base,output);variableDenominators(expr.exponent,output);
+  }else if('arg' in expr)variableDenominators(expr.arg,output);
+  return output;
+}
 
 export class CandidatePool {
   private candidates=new Map<string,Candidate>();
@@ -18,9 +40,30 @@ export class CandidatePool {
   add(draft:CandidateDraft):boolean {
     this.generated++;
     try {
-      const expr=simplify(draft.expr,this.data.domain);
+      // Score the formula users can actually copy. Rounding after simplification also catches
+      // new constants created by constant folding.
+      const expr=displayExpr(simplify(displayExpr(draft.expr),this.data.domain));
       const signature=structuralHash(expr);
       if(this.candidates.has(signature))return false;
+      // Beautification and display rounding can move a rational pole into the domain.
+      // Check between sampled points as well as on them before accepting the result.
+      const denominators=variableDenominators(expr);
+      if(denominators.length){
+        const [left,right]=this.data.domain;
+        const extent=Math.max(...this.data.rawY.map(Math.abs))+32*this.data.normalization.ys;
+        for(const denominator of denominators){
+          let previous=0;
+          for(let i=0;i<=512;i++){
+            const x=left+(right-left)*i/512;
+            const value=evaluate(denominator,x);
+            if(!value.valid||Math.abs(value.value)<1e-10||i>0&&Math.sign(value.value)!==Math.sign(previous))
+              throw Error('Pole in domain');
+            previous=value.value;
+            const prediction=evaluate(expr,x);
+            if(!prediction.valid||Math.abs(prediction.value)>extent)throw Error('Unobserved spike');
+          }
+        }
+      }
       let sum=0,huber=0,maxError=0,invalid=0;
       const scale=Math.max(this.data.normalization.ys,1e-9);
       const delta=Math.max(1.5*this.data.sigmaDraw/scale,.01);

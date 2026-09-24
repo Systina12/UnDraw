@@ -5,15 +5,17 @@ export function scoreMdl({mseNormalized,sigmaNormalized,n,k}:{mseNormalized:numb
   return n*Math.log(Math.max(mseNormalized,sigmaNormalized*sigmaNormalized,1e-16))+k*Math.log(n);
 }
 export function constantCost(constant:Constant):number {
+  const magnitude=(value:number)=>.5*Math.log10(Math.max(1,Math.abs(value)/10));
   switch(constant.kind){
-    case 'integer':return Math.abs(constant.value)<=10?0:1;
+    case 'integer':return Math.abs(constant.value)<=10?0:1+magnitude(constant.value);
     case 'rational':return .4+.8*Math.log2(Math.max(1,constant.q))+.08*Math.log2(Math.max(1,Math.abs(constant.p)));
     case 'piMultiple':return .2+.65*Math.log2(Math.max(1,constant.q))+.08*Math.log2(Math.max(1,Math.abs(constant.p)));
     case 'eMultiple':return .6+.8*Math.log2(Math.max(1,constant.q))+
       .08*Math.log2(Math.max(1,Math.abs(constant.p)));
     case 'sqrtMultiple':return .6+.8*Math.log2(Math.max(1,constant.q))+
       .08*Math.log2(Math.max(1,Math.abs(constant.p)));
-    case 'float':return Number.isInteger(constant.value)&&Math.abs(constant.value)<=10?0:2.5;
+    case 'float':return Number.isInteger(constant.value)&&Math.abs(constant.value)<=10?
+      0:2.5+magnitude(constant.value);
   }
 }
 export function expressionConstantCost(expr:Expr):number {

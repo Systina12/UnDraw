@@ -1,7 +1,8 @@
 import type { Expr, Constant } from './ast';
+import {displayNumber} from './display';
 
 export function plainConstant(c:Constant):string {
-  if(c.kind==='integer'||c.kind==='float')return Number.isInteger(c.value)?String(c.value):Number(c.value.toPrecision(6)).toString();
+  if(c.kind==='integer'||c.kind==='float')return String(displayNumber(c.value));
   const fraction=c.q===1?(Math.abs(c.p)===1?'':String(Math.abs(c.p))):`${Math.abs(c.p)}/${c.q}*`;
   const sign=c.p<0?'-':'';
   if(c.p===0)return '0';

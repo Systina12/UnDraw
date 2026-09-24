@@ -26,6 +26,12 @@ function linearFit(data:CurveData,omega:number,k:number,trend:boolean):TrigFit|n
     const weights=huberWeights(residual,Math.max(1.5*data.sigmaDraw/data.normalization.ys,.01));
     for(let i=0;i<n;i++)weights[i]*=data.weights[i];
     fitted=leastSquares(matrix,n,cols,data.v,weights);
+    if(fitted.rank<cols)return null;
+    // Closely spaced harmonic columns can be formally full rank yet require
+    // enormous opposite amplitudes to reproduce an O(1) normalized stroke.
+    // Their printed phases cannot retain that cancellation at display precision.
+    const coefficientMass=fitted.coefficients.reduce((sum,value)=>sum+Math.abs(value),0);
+    if(!Number.isFinite(coefficientMass)||coefficientMass>24)return null;
     let error=0;
     for(let i=0;i<n;i++){
       let estimate=0;for(let j=0;j<cols;j++)estimate+=matrix[i*cols+j]*fitted.coefficients[j];

@@ -4,9 +4,18 @@ import { toPlain } from '../../src/expr/plain';
 import { toLatex } from '../../src/expr/latex';
 import { serializeExpr, deserializeExpr } from '../../src/expr/serialize';
 import type { Expr } from '../../src/expr/ast';
+import {simplify} from '../../src/expr/simplify';
+import {polynomialExpr} from '../../src/expr/polynomial';
 
 describe('expression tree', () => {
   const x: Expr = {kind:'var',name:'x'};
+  it('preserves a small polynomial coefficient when its value matters over the domain',()=>{
+    const coefficients=Array(9).fill(0) as number[];
+    coefficients[8]=1e-12;
+    const expression=polynomialExpr(coefficients);
+    expect(evaluate(expression,5).value).toBeCloseTo(5**8*1e-12,13);
+    expect(evaluate(simplify(expression,[-5,5]),5).value).toBeCloseTo(5**8*1e-12,13);
+  });
   it('evaluates a mathematical constant and renders understandable formats', () => {
     const expr: Expr = {kind:'sin',arg:{kind:'mul',args:[{kind:'const',value:{kind:'piMultiple',p:1,q:1}},x]}};
     expect(evaluate(expr,.5)).toEqual({value:1,valid:true});
