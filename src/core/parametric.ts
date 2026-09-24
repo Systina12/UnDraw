@@ -5,6 +5,7 @@ import {normalizeCurve} from './normalize';
 import {fitPolynomial} from '../models/polynomial';
 import {fitSinusoid} from '../models/sinusoid';
 import {fitFourier} from '../models/fourier';
+import {fitLinearSpline} from '../models/linearSpline';
 import {CandidatePool} from '../search/candidatePool';
 import {selectRepresentatives} from '../search/pareto';
 import {scoreMdl} from '../search/scoring';
@@ -33,6 +34,9 @@ export function fitParametricAxisStage(pool:CandidatePool,stage:'quick'|'extende
   if(stage==='quick')for(let degree=0;degree<=4;degree++){
     const fitted=fitPolynomial(data,degree);if(fitted)pool.add(fitted);
   }
+  if(stage==='quick')for(const count of [8,12]){
+    const fitted=fitLinearSpline(data,count);if(fitted)pool.add(fitted);
+  }
   if(stage==='extended'){
     if(shouldStop())return;
     for(const fitted of fitSinusoid(data)){if(shouldStop())break;pool.add(fitted);}
@@ -44,12 +48,25 @@ export function fitParametricAxisStage(pool:CandidatePool,stage:'quick'|'extende
     const fitted=fitPolynomial(data,degree);
     if(fitted)pool.add({...fitted,modelFamily:'chebyshev-fallback',approximation:true});
   }
+  if(stage==='fallback')for(const count of [4,16]){
+    if(shouldStop())break;
+    const fitted=fitLinearSpline(data,count);
+    if(fitted)pool.add(fitted);
+  }
   if(stage==='beautify'&&!shouldStop())beautifyPool(pool);
 }
 interface Pair {x:Candidate;y:Candidate;result:CandidateResult}
 export function finalizeParametricResult(data:ParametricData,left:CandidatePool,right:CandidatePool,
   start:number,stopReason='parametric-fit',simplicity?:Partial<SimplicityOptions>):SolveResult {
-  const xs=left.frontier().slice(0,8),ys=right.frontier().slice(0,8);
+  // The frontier is sorted by complexity. Its tail contains the accurate
+  // approximations, which are easy to lose when retaining only the first eight.
+  const axisChoices=(pool:CandidatePool):Candidate[]=>{
+    const frontier=pool.frontier();
+    return [...new Map([...frontier.slice(0,6),...frontier.slice(-3),
+      ...[...frontier].sort((a,b)=>a.score-b.score).slice(0,3)]
+      .map(candidate=>[candidate.signature,candidate])).values()];
+  };
+  const xs=axisChoices(left),ys=axisChoices(right);
   const scale=Math.max(1e-9,Math.hypot(Math.max(...data.rawX)-Math.min(...data.rawX),
     Math.max(...data.rawY)-Math.min(...data.rawY))/2);
   const pairs:Pair[]=[];
@@ -86,6 +103,18 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
   const noise=Math.max(data.sigmaDraw,1e-9),threshold=2.5*Math.max(noise,accurate.result.rmse);
   let simple=frontier.filter(p=>p.result.rmse<=threshold).sort((a,b)=>a.result.complexity-b.result.complexity)[0];
   let balanced=[...frontier].sort((a,b)=>a.result.score-b.result.score)[0];
+  // A silhouette's low-noise traced pixels can reward a visibly displaced
+  // short formula. Require the displayed fit to stay near the outline when a
+  // substantially closer candidate exists.
+  const diagonal=Math.hypot(Math.max(...data.rawX)-Math.min(...data.rawX),
+    Math.max(...data.rawY)-Math.min(...data.rawY));
+  const visualLimit=Math.max(3*noise,.008*diagonal);
+  if(balanced.result.rmse>visualLimit&&accurate.result.rmse<
+    Math.min(visualLimit,.65*balanced.result.rmse)){
+    const visible=frontier.filter(pair=>pair.result.rmse<=
+      Math.max(visualLimit,1.5*accurate.result.rmse));
+    balanced=[...visible].sort((a,b)=>a.result.score-b.result.score)[0]??balanced;
+  }
   const originalBalanced=balanced;
   const preference=resolveSimplicity(simplicity);
   let choices=frontier;
@@ -98,6 +127,8 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
         !allowedChange(balanced.y,yc,right.data,preference,scale,preference.coefficients&&yc!==balanced.y))continue;
       const pair=makePair(xc,yc);
       if(!pair||pair.result.rmse>balanced.result.rmse+preference.tolerance*scale)continue;
+      if(preference.tolerance<=.05&&accurate.result.rmse<visualLimit&&pair.result.rmse>
+        Math.max(visualLimit,1.5*accurate.result.rmse))continue;
       let sumChange=0,peakChange=0;
       for(let i=0;i<data.t.length;i++){
         const distance=Math.hypot(pair.result.plot.x[i]-balanced.result.plot.x[i],
@@ -111,7 +142,8 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
     const cost=(pair:Pair)=>descriptionCost(pair.x)+descriptionCost(pair.y);
     const ranked=[balanced,...alternatives].sort((a,b)=>cost(a)-cost(b)||a.result.rmse-b.result.rmse);
     if(cost(ranked[0])<cost(balanced)-.1)balanced=ranked[0];
-    simple=ranked[0];
+    simple=[simple,...alternatives.filter(pair=>pair.result.rmse<=threshold)]
+      .sort((a,b)=>cost(a)-cost(b)||a.result.rmse-b.result.rmse)[0];
     choices=[...frontier,...alternatives].sort((a,b)=>cost(a)-cost(b)||a.result.rmse-b.result.rmse)
       .filter((pair,index,array)=>!array.slice(0,index).some(previous=>
         cost(previous)<=cost(pair)&&previous.result.rmse<=pair.result.rmse));
