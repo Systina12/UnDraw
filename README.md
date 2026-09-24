@@ -15,6 +15,8 @@ Open the address Vite prints. Draw as many strokes as you need using mouse, pen 
 
 To trace a graph from an image, select **Upload image** (PNG, JPEG, WebP or BMP, up to 12 MB). The original stays under the coordinate plane and detected edges are highlighted. Tap the edges you want to fit; each selected contour becomes a stroke in world coordinates. You can choose **Draw by hand** to add your own traces over the image, adjust **Edge detail** if contours are faint, and switch back to **Select image edges**. Press **Find functions** after choosing the contours. The coordinate view at the moment of import defines the image scale; pan and zoom preserve it. Importing a different image starts a new drawing; **Clear** removes strokes while **Remove image** keeps any selected strokes. Detected edges in photographs, labels and grid lines may require manual selection or drawing over the intended curve.
 
+For graphs and sketches with a mostly uniform background, the image Worker identifies colored traces before neutral grid lines and thins wide strokes to their center. It joins short gaps when the segments have compatible directions. A gradient edge detector still covers grayscale and textured images. Color and ink contours take priority over duplicate outline edges, so a thick stroke can usually be selected as one path. Crossing curves with distinct colors are traced separately; ambiguous intersections, photos and dense annotations can still need manual selection.
+
 To produce the installable, offline-capable app:
 
 ```sh
