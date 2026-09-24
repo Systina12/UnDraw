@@ -11,5 +11,6 @@ export const DEFAULT_OPTIONS: SolverOptions = {
   timeBudgetMs: null,
   enableParametricFallback: true,
   deterministicSeed: 1,
-  simplify: {enabled:false,tolerance:.05,translation:true,scaling:true,deformation:false},
+  simplify: {enabled:false,tolerance:.05,translation:true,scaling:true,deformation:false,
+    coefficients:true},
 };
