@@ -38,7 +38,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
             </select>
           </label>
         </fieldset>
-        <p>Maximum change from the original fit, relative to half the drawn height. Accurate always shows the original fit.</p>
+        <p>RMS change relative to half the drawn height (or half the bounding-box diagonal for a parametric curve). Accurate keeps the original fit.</p>
       </details>
       <div class="toolbar" role="group" aria-label="Canvas controls">
         <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>

@@ -102,3 +102,29 @@ it('keeps a parametric expression and its accurate version with simplification e
   expect(result.groups[0].result.balanced.parametric?.xPlain).toContain('t');
   expect(result.groups[0].result.accurate.rmse).toBeLessThan(.5);
 });
+
+it('uses one geometric tolerance for both axes of a parametric stroke',async()=>{
+  const vertical=Array.from({length:100},(_,i)=>({x:1.13+.001*Math.sin(i),
+    y:-2+4*i/99,t:i}));
+  const result=(await solveStrokesProgressive([vertical],'per-stroke',
+    {timeBudgetMs:0,simplify:{enabled:true,tolerance:.1,translation:true,scaling:false,
+      deformation:false}})).groups[0].result;
+  expect(result.mode).toBe('parametric');
+  expect(result.balanced.parametric?.xPlain).toBe('1');
+  expect(result.accurate.parametric?.xPlain).not.toBe('1');
+  expect(result.balanced.rmse).toBeLessThan(.2);
+});
+
+it('caps the combined displacement when both parametric coordinates change',async()=>{
+  const points=Array.from({length:100},(_,i)=>({x:1.15+.001*Math.sin(i),
+    y:1.15+4*i/99,t:i}));
+  const result=(await solveStrokesProgressive([points],'per-stroke',
+    {timeBudgetMs:0,simplify:{enabled:true,tolerance:.1,translation:true,scaling:false,
+      deformation:false}})).groups[0].result;
+  const changed=result.balanced.plot,original=result.accurate.plot;
+  const rms=Math.sqrt(changed.x.reduce((sum,x,i)=>sum+(x-original.x[i])**2+
+    (changed.y[i]-original.y[i])**2,0)/changed.x.length);
+  const halfDiagonal=Math.hypot(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x)),4)/2;
+  expect(rms).toBeLessThanOrEqual(.1*halfDiagonal+1e-3);
+  expect(result.balanced.parametric?.yPlain).toContain('1 +');
+});
