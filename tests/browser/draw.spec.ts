@@ -73,6 +73,6 @@ test('optional error limit shortens decimals and keeps an accurate alternative',
   await page.getByRole('checkbox',{name:'Scale'}).uncheck();
   await expect(page.getByTestId('formula')).toContainText('stroke ready');
   await page.getByRole('button',{name:'Find functions'}).click();
-  await page.getByRole('button',{name:'Balanced',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Balanced',exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('[data-plain]')).toContainText('1.94');
 });

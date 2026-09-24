@@ -173,7 +173,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   root.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[data-simplify]').forEach(input=>input.addEventListener('change',()=>{
     root.querySelector<HTMLFieldSetElement>('[data-simplicity-options]')!.disabled=
       !root.querySelector<HTMLInputElement>('[data-simplify="enabled"]')!.checked;
-    cancel();state={...state,result:null,phase:'idle'};update();
+    cancel();state={...state,result:null,phase:'idle',selected:'balanced'};update();
   }));
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>button.addEventListener('click',()=>{
     state=selectCandidate(state,button.dataset.choice as Choice);update();
