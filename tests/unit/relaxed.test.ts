@@ -77,7 +77,7 @@ it('checks low-impact coefficients beyond the first seven AST literals',()=>{
 it('rounds digits only when opted in and preserves the original Accurate fit',()=>{
   const original=add(mul(constant(1.94),variable()),constant(.07));
   const {pool,data}=sample(original);
-  const exact=finalizeFunctionResult(pool,data,performance.now());
+  const exact=finalizeFunctionResult(pool,data,performance.now(),'completed',{enabled:false});
   const rounded=finalizeFunctionResult(pool,data,performance.now(),'completed',
     {enabled:true,tolerance:.1,translation:true,scaling:true,deformation:false});
   expect(exact.balanced.plain).toContain('1.94');

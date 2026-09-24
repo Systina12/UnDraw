@@ -9,7 +9,8 @@ it('returns a two-coordinate expression for a drawn circle',()=>{
   });
   const result=solveCurve(points);
   expect(result.mode).toBe('parametric');
-  expect(result.best.rmse).toBeLessThan(.09);
+  expect(result.accurate.rmse).toBeLessThan(.09);
+  expect(result.best.rmse).toBeLessThan(result.accurate.rmse+.05*3*Math.SQRT2);
   expect(result.best.plot.x).toHaveLength(256);
   expect(result.best.parametric?.xLatex).toContain('t');
   const equations=result.best.parametric!;

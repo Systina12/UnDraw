@@ -25,12 +25,12 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         </fieldset>
         <button type="button" data-action="fit" class="fit-button" disabled>Find functions</button>
       </div>
-      <details class="simplicity-settings"><summary>Prefer shorter formulas <span>optional</span></summary>
-        <label class="simplicity-master"><input type="checkbox" data-simplify="enabled"> Allow a little error for fewer digits</label>
-        <fieldset data-simplicity-options disabled><legend>Allowed changes to the fitted curve</legend>
+      <details class="simplicity-settings"><summary>Prefer shorter formulas <span>5% by default</span></summary>
+        <label class="simplicity-master"><input type="checkbox" data-simplify="enabled" checked> Allow a little error for fewer digits</label>
+        <fieldset data-simplicity-options><legend>Allowed changes to the fitted curve</legend>
           <label><input type="checkbox" data-simplify="translation" checked> Shift</label>
           <label><input type="checkbox" data-simplify="scaling" checked> Scale</label>
-          <label><input type="checkbox" data-simplify="deformation"> Reshape</label>
+          <label><input type="checkbox" data-simplify="deformation" checked> Reshape</label>
           <label><input type="checkbox" data-simplify="coefficients" checked> Round low-impact coefficients</label>
           <label class="simplicity-tolerance">Limit
             <select data-simplify="tolerance" aria-label="Allowed deviation">
