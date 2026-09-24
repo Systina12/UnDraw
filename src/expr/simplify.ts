@@ -3,7 +3,9 @@ import {canonicalize,structuralHash} from './canonical';
 
 const val=(e:Expr):number|null=>e.kind==='const'?numericConstant(e.value):null;
 const is=(e:Expr,n:number)=>val(e)===n;
-const closeZero=(n:number)=>Math.abs(n)<1e-11;
+// A fixed absolute threshold can delete a tiny coefficient of x^8 whose value
+// is substantial on the drawn domain. Approximate pruning belongs in scoring.
+const closeZero=(n:number)=>n===0;
 
 export function simplify(expr:Expr,domain?:[number,number]):Expr {
   switch(expr.kind){

@@ -25,3 +25,7 @@ it('charges the numerator and denominator of an e multiple',()=>{
   expect(constantCost({kind:'eMultiple',p:1,q:12}))
     .toBeGreaterThan(constantCost({kind:'eMultiple',p:1,q:1}));
 });
+it('charges large numeric literals by their written magnitude',()=>{
+  expect(constantCost({kind:'float',value:1e9}))
+    .toBeGreaterThan(constantCost({kind:'float',value:11})+3);
+});

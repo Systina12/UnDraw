@@ -1,5 +1,6 @@
-import type {Expr} from '../expr/ast';
+import {add,constant,mul,variable,type Expr} from '../expr/ast';
 import {polynomialExpr} from '../expr/polynomial';
+import {simplify} from '../expr/simplify';
 import type {CurveData,Normalization} from '../core/normalize';
 import type {CandidateDraft} from '../search/producer';
 import {leastSquares} from '../math/leastSquares';
@@ -18,6 +19,23 @@ export function normalizedPolynomialToWorld(coefficients:ReadonlyArray<number>,n
   }
   for(let j=0;j<world.length;j++)world[j]*=ys;
   world[0]+=yc;
+  // Expanding a polynomial fitted near x=3 into x^8 can create enormous terms
+  // that cancel only at full precision. Retain a centered Horner form whenever
+  // six-digit coefficients in the expanded form would lose visible accuracy.
+  const edge=Math.max(Math.abs(xc-xs),Math.abs(xc+xs));
+  let term=1,termSum=0;
+  for(const coefficient of world){
+    termSum+=Math.abs(coefficient)*term;
+    term*=edge;
+  }
+  if(coefficients.length>2&&(!Number.isFinite(termSum)||termSum>100*Math.max(ys,1e-9))){
+    const u:Expr={kind:'div',a:add(variable(),constant(-xc)),b:constant(xs)};
+    let horner:Expr=constant(coefficients.at(-1)??0);
+    for(let k=coefficients.length-2;k>=0;k--){
+      horner=add(constant(coefficients[k]),mul(u,horner));
+    }
+    return simplify(add(constant(yc),mul(constant(ys),horner)));
+  }
   return polynomialExpr(world);
 }
 

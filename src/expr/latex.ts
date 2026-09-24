@@ -1,7 +1,8 @@
 import type { Expr, Constant } from './ast';
+import {displayNumber} from './display';
 
 function latexConstant(c:Constant):string {
-  if(c.kind==='integer'||c.kind==='float')return Number.isInteger(c.value)?String(c.value):String(Number(c.value.toPrecision(6)));
+  if(c.kind==='integer'||c.kind==='float')return String(displayNumber(c.value));
   if(c.p===0)return '0';
   const coefficient=c.q===1?(Math.abs(c.p)===1?'':String(Math.abs(c.p))):`\\frac{${Math.abs(c.p)}}{${c.q}}`;
   const sign=c.p<0?'-':'';

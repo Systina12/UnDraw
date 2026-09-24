@@ -21,9 +21,9 @@ export function polynomialExpr(coefficients:ArrayLike<number>,input:Expr=variabl
   const terms:Expr[]=[];
   for(let j=0;j<coefficients.length;j++){
     const c=coefficients[j];
-    if(Math.abs(c)<1e-11)continue;
+    if(c===0)continue;
     const factor=j===0?constant(c):j===1?input:pow(input,integer(j));
-    terms.push(j===0?factor:Math.abs(c-1)<1e-11?factor:mul(constant(c),factor));
+    terms.push(j===0?factor:c===1?factor:mul(constant(c),factor));
   }
   return simplify(terms.length?add(...terms):integer(0));
 }
