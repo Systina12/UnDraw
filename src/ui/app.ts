@@ -47,14 +47,14 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         <button type="button" data-action="reset-view" title="Reset coordinate view">⌗ Reset view</button>
       </div></div>
     <section class="result" aria-live="polite" aria-label="Function finder result">
-      <div class="eyebrow">THE EXPRESSION</div>
-      <div data-formula data-testid="formula" class="formula">Draw one or more strokes</div>
-      <p data-quality class="quality">Click Find functions when your drawing is ready.</p>
       <div class="choices" role="group" aria-label="Choose a candidate">
         <button type="button" data-choice="simple" aria-pressed="false">Simple</button>
         <button type="button" data-choice="balanced" aria-pressed="true">Balanced</button>
         <button type="button" data-choice="accurate" aria-pressed="false">Accurate</button>
       </div>
+      <div class="eyebrow">THE EXPRESSION</div>
+      <div data-formula data-testid="formula" class="formula">Draw one or more strokes</div>
+      <p data-quality class="quality">Click Find functions when your drawing is ready.</p>
       <p data-plain class="plain-text"></p>
       <div class="copy-actions"><button type="button" data-action="copy-latex">Copy LaTeX</button>
         <button type="button" data-action="copy-plain">Copy expression</button></div>
