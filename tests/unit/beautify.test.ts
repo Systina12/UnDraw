@@ -19,3 +19,9 @@ it('charges the rational coefficient of a radical instead of treating it as a si
   const radical=constantCost({kind:'sqrtMultiple',p:20,q:9,n:2});
   expect(radical).toBeGreaterThan(pi+1);
 });
+it('charges the numerator and denominator of an e multiple',()=>{
+  expect(constantCost({kind:'eMultiple',p:1,q:12}))
+    .toBeGreaterThan(constantCost({kind:'rational',p:1,q:4}));
+  expect(constantCost({kind:'eMultiple',p:1,q:12}))
+    .toBeGreaterThan(constantCost({kind:'eMultiple',p:1,q:1}));
+});

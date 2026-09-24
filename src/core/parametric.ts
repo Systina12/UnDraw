@@ -90,15 +90,23 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
   const preference=resolveSimplicity(simplicity);
   let choices=frontier;
   if(preference.enabled&&preference.tolerance>0){
-    const xChoices=[balanced.x,...relaxedCandidates(balanced.x,xs,left.data,preference).slice(0,5)];
-    const yChoices=[balanced.y,...relaxedCandidates(balanced.y,ys,right.data,preference).slice(0,5)];
+    const xChoices=[balanced.x,...relaxedCandidates(balanced.x,xs,left.data,preference,scale).slice(0,5)];
+    const yChoices=[balanced.y,...relaxedCandidates(balanced.y,ys,right.data,preference,scale).slice(0,5)];
     const alternatives:Pair[]=[];
     for(const xc of xChoices)for(const yc of yChoices){
-      if(!allowedChange(balanced.x,xc,left.data,preference)||
-        !allowedChange(balanced.y,yc,right.data,preference))continue;
+      if(!allowedChange(balanced.x,xc,left.data,preference,scale)||
+        !allowedChange(balanced.y,yc,right.data,preference,scale))continue;
       const pair=makePair(xc,yc);
-      if(pair&&pair.result.rmse<=balanced.result.rmse+
-        preference.tolerance*scale)alternatives.push(pair);
+      if(!pair||pair.result.rmse>balanced.result.rmse+preference.tolerance*scale)continue;
+      let sumChange=0,peakChange=0;
+      for(let i=0;i<data.t.length;i++){
+        const distance=Math.hypot(pair.result.plot.x[i]-balanced.result.plot.x[i],
+          pair.result.plot.y[i]-balanced.result.plot.y[i]);
+        sumChange+=distance*distance;
+        peakChange=Math.max(peakChange,distance);
+      }
+      const budget=preference.tolerance*scale;
+      if(Math.sqrt(sumChange/data.t.length)<=budget&&peakChange<=3*budget)alternatives.push(pair);
     }
     const cost=(pair:Pair)=>descriptionCost(pair.x)+descriptionCost(pair.y);
     const ranked=[balanced,...alternatives].sort((a,b)=>cost(a)-cost(b)||a.result.rmse-b.result.rmse);

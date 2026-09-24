@@ -1,7 +1,14 @@
 import katex from 'katex';
 import type {SolveResult,CandidateResult,MultiSolveResult} from '../core/types';
+import {qualityFromError} from '../core/quality';
 
 export type Choice='simple'|'balanced'|'accurate';
+function chosenQuality(result:SolveResult,kind:Choice):SolveResult['quality']{
+  if(kind==='balanced'||(kind==='simple'&&result.simple.plain===result.balanced.plain&&
+    result.simple.rmse===result.balanced.rmse))return result.quality;
+  const candidate=result[kind];
+  return qualityFromError(candidate.rmse,result.noise,candidate.approximation);
+}
 export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='balanced'):CandidateResult {
   const candidate=result[kind];
   const target=root.querySelector<HTMLElement>('[data-formula]');
@@ -11,7 +18,7 @@ export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='b
     katex.render(latex,target,{throwOnError:false,trust:false,output:'html'});
     target.title=`RMSE: ${candidate.rmse.toPrecision(3)} · Complexity: ${candidate.complexity} · ${candidate.modelFamily??'General'}`;
   }
-  if(quality)quality.textContent={excellent:'Excellent match',good:'Good match',approximation:'Approximation',low:'Low confidence'}[result.quality]+
+  if(quality)quality.textContent={excellent:'Excellent match',good:'Good match',approximation:'Approximation',low:'Low confidence'}[chosenQuality(result,kind)]+
     (kind!=='accurate'&&result.simplified?' · Shorter formula within selected limit':'');
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>{
     const selected=button.dataset.choice===kind;
@@ -41,7 +48,7 @@ export function renderMultiFormula(root:HTMLElement,batch:MultiSolveResult,kind:
   }
   if(quality){
     const levels=['excellent','good','approximation','low'];
-    const worst=batch.groups.reduce((max,group)=>Math.max(max,levels.indexOf(group.result.quality)),0);
+    const worst=batch.groups.reduce((max,group)=>Math.max(max,levels.indexOf(chosenQuality(group.result,kind))),0);
     const descriptions=['Excellent match','Good match','Approximation','Low confidence'];
     quality.textContent=`${batch.groups.length} function${batch.groups.length===1?'':'s'} · ${descriptions[worst]}`+
       (batch.skipped.length?` · ${batch.skipped.length} short stroke${batch.skipped.length===1?'':'s'} skipped`:'')+

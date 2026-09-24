@@ -9,7 +9,7 @@ export interface Point { x: number; y: number; t: number }
 
 export interface SimplicityOptions {
   enabled: boolean;
-  /** Allowed RMS deviation as a fraction of the vertical half-range. */
+  /** Allowed RMS deviation as a fraction of the scalar half-height or parametric half-diagonal. */
   tolerance: number;
   translation: boolean;
   scaling: boolean;

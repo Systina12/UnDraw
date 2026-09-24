@@ -4,6 +4,7 @@ import {normalizeCurve} from '../../src/core/normalize';
 import {CandidatePool} from '../../src/search/candidatePool';
 import {finalizeFunctionResult} from '../../src/core/solver';
 import {allowedChange,resolveSimplicity} from '../../src/beautify/relaxed';
+import {solveStrokesProgressive} from '../../src/core/multi';
 
 function sample(expr:Expr){
   const x=Float64Array.from({length:128},(_,i)=>-1+2*i/127);
@@ -50,4 +51,16 @@ it('allows translation and scaling independently, and blocks shape changes until
   expect(allowedChange(baseline,scaled,data,resolveSimplicity({...config,scaling:true}))).toBe(true);
   expect(allowedChange(baseline,reshaped,data,resolveSimplicity({...config,translation:true,scaling:true}))).toBe(false);
   expect(allowedChange(baseline,reshaped,data,resolveSimplicity({...config,translation:true,scaling:true,deformation:true}))).toBe(true);
+});
+
+it('prefers a short ordinary fraction over an elaborate e multiple',async()=>{
+  const points=Array.from({length:100},(_,i)=>{
+    const x=-1+2*i/99;
+    return {x,y:2*x+.23,t:i};
+  });
+  const result=(await solveStrokesProgressive([points],'per-stroke',
+    {timeBudgetMs:0,simplify:{enabled:true,tolerance:.02,translation:true,scaling:false,
+      deformation:false}})).groups[0].result;
+  expect(result.balanced.plain).toBe('1/4 + 2 * x');
+  expect(result.balanced.rmse).toBeLessThan(.04);
 });

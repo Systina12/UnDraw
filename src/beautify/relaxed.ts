@@ -1,7 +1,7 @@
 import type {Expr,Constant} from '../expr/ast';
 import {numericConstant} from '../expr/ast';
 import {evaluate} from '../expr/evaluate';
-import {toPlain} from '../expr/plain';
+import {plainConstant,toPlain} from '../expr/plain';
 import {expressionConstantCost} from '../search/scoring';
 import type {Candidate,CandidateDraft} from '../search/producer';
 import {CandidatePool} from '../search/candidatePool';
@@ -41,22 +41,21 @@ export function resolveSimplicity(options?:Partial<SimplicityOptions>):Simplicit
     Math.max(0,Math.min(.15,combined.tolerance)):.05};
 }
 
-/** Extra description cost for printed digits beyond the first. */
+/** Charge for the entire printed literal, including fractions and radicals. */
 export function descriptionCost(candidate:Candidate):number {
-  let digits=0;
+  let length=0;
   function visit(expr:Expr):void {
-    if(expr.kind==='const'&&expr.value.kind==='float'){
-      const rendered=Number(expr.value.value.toPrecision(6)).toString();
-      digits+=Math.max(0,(rendered.match(/\d/g)?.length??0)-1)*.42;
-    }else children(expr).forEach(visit);
+    if(expr.kind==='const')length+=Math.max(0,plainConstant(expr.value).length-1)*.35;
+    else children(expr).forEach(visit);
   }
   visit(candidate.expr);
-  return candidate.complexity+digits;
+  return candidate.complexity+length;
 }
 
 /** Separate the difference from the original fit into offset, gain, and remaining shape. */
-export function allowedChange(base:Candidate,trial:Candidate,data:CurveData,options:SimplicityOptions):boolean {
-  const n=data.x.length,scale=Math.max(data.normalization.ys,1e-8),budget=options.tolerance*scale;
+export function allowedChange(base:Candidate,trial:Candidate,data:CurveData,options:SimplicityOptions,
+  changeScale=data.normalization.ys):boolean {
+  const n=data.x.length,scale=Math.max(changeScale,1e-8),budget=options.tolerance*scale;
   if(!n||budget<=0)return false;
   let sumBase=0,sumDiff=0,sumDiffSq=0,sumBaseSq=0,sumCross=0,maxDiff=0;
   for(const x of data.x){
@@ -94,6 +93,8 @@ function alternatives(value:number,tolerance:number):Constant[]{
   for(const candidate of output){
     const actual=numericConstant(candidate);
     if(!Number.isFinite(actual)||Math.abs(actual-value)>window||Math.abs(actual-value)<1e-12)continue;
+    if((candidate.kind==='piMultiple'||candidate.kind==='eMultiple')&&
+      Math.abs(actual-value)>Math.max(.012,.02*Math.abs(value)))continue;
     unique.set(`${candidate.kind}:${actual}`,candidate);
   }
   return [...unique.values()].sort((a,b)=>{
@@ -106,7 +107,7 @@ function alternatives(value:number,tolerance:number):Constant[]{
 
 /** Bounded local search; every proposal is evaluated on the original sampled stroke. */
 export function relaxedCandidates(base:Candidate,seeds:readonly Candidate[],data:CurveData,
-  options:SimplicityOptions):Candidate[]{
+  options:SimplicityOptions,changeScale=data.normalization.ys):Candidate[]{
   if(!options.enabled||!options.tolerance)return [];
   const accepted=new Map<string,Candidate>();
   for(const seed of seeds.slice(0,5)){
@@ -125,7 +126,7 @@ export function relaxedCandidates(base:Candidate,seeds:readonly Candidate[],data
         const probe=new CandidatePool(data,1);
         if(!probe.add(draft))continue;
         const candidate=probe.all()[0];
-        if(!allowedChange(base,candidate,data,options))continue;
+        if(!allowedChange(base,candidate,data,options,changeScale))continue;
         accepted.set(candidate.signature,candidate);
         next.push({expr,candidate,fixed:state.fixed+1});
       }
