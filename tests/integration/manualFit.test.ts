@@ -36,7 +36,8 @@ it('waits for Find functions, sends every stroke and invalidates results on a mo
     expect(requests).toHaveLength(1);
     expect(requests[0].strokes).toHaveLength(2);
     expect(requests[0].mode).toBe('per-stroke');
-    expect(requests[0].options.simplify.enabled).toBe(false);
+    expect(requests[0].options.simplify).toEqual({enabled:true,translation:true,scaling:true,
+      deformation:true,coefficients:true,tolerance:.05});
     await Promise.resolve();
     expect(root.querySelectorAll('.formula-row')).toHaveLength(2);
     const automatic=root.querySelector<HTMLInputElement>('input[value="auto"]')!;
@@ -46,6 +47,10 @@ it('waits for Find functions, sends every stroke and invalidates results on a mo
     expect(requests[1].mode).toBe('auto');
     root.querySelector<HTMLElement>('.simplicity-settings')!.setAttribute('open','');
     const enable=root.querySelector<HTMLInputElement>('[data-simplify="enabled"]')!;
+    expect(enable.checked).toBe(true);
+    expect(root.querySelector<HTMLFieldSetElement>('[data-simplicity-options]')!.disabled).toBe(false);
+    enable.checked=false;enable.dispatchEvent(new Event('change'));
+    expect(root.querySelector<HTMLFieldSetElement>('[data-simplicity-options]')!.disabled).toBe(true);
     enable.checked=true;enable.dispatchEvent(new Event('change'));
     expect(root.querySelector<HTMLFieldSetElement>('[data-simplicity-options]')!.disabled).toBe(false);
     root.querySelector<HTMLSelectElement>('[data-simplify="tolerance"]')!.value='0.10';
