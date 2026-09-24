@@ -1,7 +1,7 @@
 import {drawStroke,renderPlane} from './canvas';
 import {ViewportTransform} from './viewport';
 import {captureStroke} from './stroke';
-import type {FitMode} from '../core/types';
+import type {FitMode,SolverOptions} from '../core/types';
 import {WorkerClient} from '../worker/client';
 import {drawFittedPlot} from './plot';
 import {renderMultiFormula,type Choice} from './formulaPanel';
@@ -25,6 +25,21 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         </fieldset>
         <button type="button" data-action="fit" class="fit-button" disabled>Find functions</button>
       </div>
+      <details class="simplicity-settings"><summary>Prefer shorter formulas <span>optional</span></summary>
+        <label class="simplicity-master"><input type="checkbox" data-simplify="enabled"> Allow a little error for fewer digits</label>
+        <fieldset data-simplicity-options disabled><legend>Allowed changes to the fitted curve</legend>
+          <label><input type="checkbox" data-simplify="translation" checked> Shift</label>
+          <label><input type="checkbox" data-simplify="scaling" checked> Scale</label>
+          <label><input type="checkbox" data-simplify="deformation"> Reshape</label>
+          <label class="simplicity-tolerance">Limit
+            <select data-simplify="tolerance" aria-label="Allowed deviation">
+              <option value="0.02">Subtle · 2%</option><option value="0.05" selected>Moderate · 5%</option>
+              <option value="0.10">Loose · 10%</option>
+            </select>
+          </label>
+        </fieldset>
+        <p>Maximum change from the original fit, relative to half the drawn height. Accurate always shows the original fit.</p>
+      </details>
       <div class="toolbar" role="group" aria-label="Canvas controls">
         <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>
         <button type="button" data-action="clear" title="Clear the stroke">✕ Clear</button>
@@ -88,10 +103,16 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     draw();
   };
   const cancel=()=>{worker.cancel();requestId=0;};
+  const simplicityOptions=():SolverOptions['simplify']=>{
+    const checked=(name:string)=>root.querySelector<HTMLInputElement>(`[data-simplify="${name}"]`)!.checked;
+    return {enabled:checked('enabled'),translation:checked('translation'),scaling:checked('scaling'),
+      deformation:checked('deformation'),
+      tolerance:Number(root.querySelector<HTMLSelectElement>('[data-simplify="tolerance"]')!.value)};
+  };
   const request=()=>{
     if(!state.strokes.length||drawing)return;
     cancel();state={...state,result:null,phase:'solving'};update();
-    requestId=worker.solveStrokes(state.strokes,state.mode,view.current,{},message=>{
+    requestId=worker.solveStrokes(state.strokes,state.mode,view.current,{simplify:simplicityOptions()},message=>{
       if(message.id!==requestId)return;
       if(drawing){
         if(message.type==='batch-progress'||message.type==='batch-done'){
@@ -148,6 +169,11 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   root.querySelectorAll<HTMLInputElement>('input[name="fit-mode"]').forEach(input=>input.addEventListener('change',()=>{
     if(!input.checked)return;
     cancel();state={...state,mode:input.value as FitMode,result:null,phase:'idle'};update();
+  }));
+  root.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[data-simplify]').forEach(input=>input.addEventListener('change',()=>{
+    root.querySelector<HTMLFieldSetElement>('[data-simplicity-options]')!.disabled=
+      !root.querySelector<HTMLInputElement>('[data-simplify="enabled"]')!.checked;
+    cancel();state={...state,result:null,phase:'idle',selected:'balanced'};update();
   }));
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>button.addEventListener('click',()=>{
     state=selectCandidate(state,button.dataset.choice as Choice);update();

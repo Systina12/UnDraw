@@ -58,3 +58,21 @@ test('automatic mode can merge two collinear strokes into one formula',async({pa
   await expect(page.locator('.formula-row')).toHaveCount(1);
   await expect(page.getByTestId('formula')).toContainText('Function 1');
 });
+
+test('optional error limit shortens decimals and keeps an accurate alternative',async({page})=>{
+  await page.goto('/');
+  await drawWorldCurve(page,x=>1.94*x+.07,-1,1);
+  await page.locator('.simplicity-settings summary').click();
+  await page.getByRole('checkbox',{name:'Allow a little error for fewer digits'}).check();
+  await page.getByRole('combobox',{name:'Allowed deviation'}).selectOption('0.10');
+  await page.getByRole('button',{name:'Find functions'}).click();
+  await expect(page.locator('[data-quality]')).toContainText('Shorter formula within selected limit');
+  await expect(page.locator('[data-plain]')).toContainText('2 * x');
+  await page.getByRole('button',{name:'Accurate',exact:true}).click();
+  await expect(page.locator('[data-plain]')).toContainText('1.94');
+  await page.getByRole('checkbox',{name:'Scale'}).uncheck();
+  await expect(page.getByTestId('formula')).toContainText('stroke ready');
+  await page.getByRole('button',{name:'Find functions'}).click();
+  await expect(page.getByRole('button',{name:'Balanced',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-plain]')).toContainText('1.94');
+});

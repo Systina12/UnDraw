@@ -1,5 +1,5 @@
 import type {ParametricData} from './preprocess';
-import type {CandidateResult,SolveResult,SolverOptions} from './types';
+import type {CandidateResult,SolveResult,SolverOptions,SimplicityOptions} from './types';
 import type {CurveData} from './normalize';
 import {normalizeCurve} from './normalize';
 import {fitPolynomial} from '../models/polynomial';
@@ -15,6 +15,7 @@ import {evaluate} from '../expr/evaluate';
 import {toLatex} from '../expr/latex';
 import {toPlain} from '../expr/plain';
 import {beautifyPool} from '../beautify/beautify';
+import {allowedChange,descriptionCost,relaxedCandidates,resolveSimplicity} from '../beautify/relaxed';
 
 function axisData(data:ParametricData,axis:'x'|'y'):CurveData {
   const rawY=axis==='x'?data.rawX:data.rawY;
@@ -47,12 +48,12 @@ export function fitParametricAxisStage(pool:CandidatePool,stage:'quick'|'extende
 }
 interface Pair {x:Candidate;y:Candidate;result:CandidateResult}
 export function finalizeParametricResult(data:ParametricData,left:CandidatePool,right:CandidatePool,
-  start:number,stopReason='parametric-fit'):SolveResult {
+  start:number,stopReason='parametric-fit',simplicity?:Partial<SimplicityOptions>):SolveResult {
   const xs=left.frontier().slice(0,8),ys=right.frontier().slice(0,8);
   const scale=Math.max(1e-9,Math.hypot(Math.max(...data.rawX)-Math.min(...data.rawX),
     Math.max(...data.rawY)-Math.min(...data.rawY))/2);
   const pairs:Pair[]=[];
-  for(const xc of xs)for(const yc of ys){
+  const makePair=(xc:Candidate,yc:Candidate):Pair|null=>{
     const xExpr=substituteVariable(xc.expr,'x',variable('t'));
     const yExpr=substituteVariable(yc.expr,'x',variable('t'));
     let sum=0,valid=true;
@@ -63,7 +64,7 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
       plot.x.push(x.value);plot.y.push(y.value);
       sum+=(x.value-data.rawX[i])**2+(y.value-data.rawY[i])**2;
     }
-    if(!valid)continue;
+    if(!valid)return null;
     const rmse=Math.sqrt(sum/data.t.length),complexity=xc.complexity+yc.complexity;
     const score=scoreMdl({mseNormalized:sum/data.t.length/scale**2,
       sigmaNormalized:data.sigmaDraw/scale,n:data.t.length,k:complexity});
@@ -74,21 +75,47 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
       complexity,score,modelFamily:`${xc.modelFamily} + ${yc.modelFamily}`,
       approximation:xc.approximation||yc.approximation,plot,
       parametric:{xExpr,yExpr,xLatex,yLatex,xPlain,yPlain}};
-    pairs.push({x:xc,y:yc,result});
-  }
+    return {x:xc,y:yc,result};
+  };
+  for(const xc of xs)for(const yc of ys){const pair=makePair(xc,yc);if(pair)pairs.push(pair);}
   if(!pairs.length)throw new Error('No valid parametric candidate');
   pairs.sort((a,b)=>a.result.complexity-b.result.complexity||a.result.rmse-b.result.rmse);
   const frontier:Pair[]=[];let minError=Infinity;
   for(const pair of pairs)if(pair.result.rmse<minError-1e-9){frontier.push(pair);minError=pair.result.rmse;}
   const accurate=[...frontier].sort((a,b)=>a.result.rmse-b.result.rmse)[0];
   const noise=Math.max(data.sigmaDraw,1e-9),threshold=2.5*Math.max(noise,accurate.result.rmse);
-  const simple=frontier.filter(p=>p.result.rmse<=threshold).sort((a,b)=>a.result.complexity-b.result.complexity)[0];
-  const balanced=[...frontier].sort((a,b)=>a.result.score-b.result.score)[0];
+  let simple=frontier.filter(p=>p.result.rmse<=threshold).sort((a,b)=>a.result.complexity-b.result.complexity)[0];
+  let balanced=[...frontier].sort((a,b)=>a.result.score-b.result.score)[0];
+  const originalBalanced=balanced;
+  const preference=resolveSimplicity(simplicity);
+  let choices=frontier;
+  if(preference.enabled&&preference.tolerance>0){
+    const xChoices=[balanced.x,...relaxedCandidates(balanced.x,xs,left.data,preference).slice(0,5)];
+    const yChoices=[balanced.y,...relaxedCandidates(balanced.y,ys,right.data,preference).slice(0,5)];
+    const alternatives:Pair[]=[];
+    for(const xc of xChoices)for(const yc of yChoices){
+      if(!allowedChange(balanced.x,xc,left.data,preference)||
+        !allowedChange(balanced.y,yc,right.data,preference))continue;
+      const pair=makePair(xc,yc);
+      if(pair&&pair.result.rmse<=balanced.result.rmse+
+        preference.tolerance*scale)alternatives.push(pair);
+    }
+    const cost=(pair:Pair)=>descriptionCost(pair.x)+descriptionCost(pair.y);
+    const ranked=[balanced,...alternatives].sort((a,b)=>cost(a)-cost(b)||a.result.rmse-b.result.rmse);
+    if(cost(ranked[0])<cost(balanced)-.1)balanced=ranked[0];
+    simple=ranked[0];
+    choices=[...frontier,...alternatives].sort((a,b)=>cost(a)-cost(b)||a.result.rmse-b.result.rmse)
+      .filter((pair,index,array)=>!array.slice(0,index).some(previous=>
+        cost(previous)<=cost(pair)&&previous.result.rmse<=pair.result.rmse));
+  }
   const ratio=balanced.result.rmse/noise;
-  const quality: SolveResult['quality']=balanced.result.approximation?'approximation':
+  const simplified=balanced.x.signature!==originalBalanced.x.signature||
+    balanced.y.signature!==originalBalanced.y.signature;
+  let quality: SolveResult['quality']=balanced.result.approximation?'approximation':
     ratio<=1.5?'excellent':ratio<=3?'good':ratio<=6?'approximation':'low';
-  return {mode:'parametric',best:balanced.result,simple:simple.result,balanced:balanced.result,
-    accurate:accurate.result,pareto:frontier.map(pair=>pair.result),domain:[0,1],noise,
+  if(simplified&&quality==='low'&&originalBalanced.result.rmse/noise<=6)quality='approximation';
+  return {mode:'parametric',simplified,best:balanced.result,simple:simple.result,balanced:balanced.result,
+    accurate:accurate.result,pareto:choices.map(pair=>pair.result),domain:[0,1],noise,
     quality,diagnostics:{runtimeMs:performance.now()-start,candidatesGenerated:left.generated+right.generated,
       candidatesFitted:left.size+right.size,candidatesRejected:left.rejected+right.rejected,maxComplexityReached:0,
       stopReason}};
@@ -101,5 +128,5 @@ export function solveParametric(data:ParametricData,options:SolverOptions,start=
     fitParametricAxisStage(left,stage);
     fitParametricAxisStage(right,stage);
   }
-  return finalizeParametricResult(data,left,right,start);
+  return finalizeParametricResult(data,left,right,start,'parametric-fit',options.simplify);
 }

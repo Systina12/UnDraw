@@ -61,6 +61,8 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
       result=finalizeParametricResult(prepared.data,left,right,start);
     }
     if(expired())result.diagnostics.stopReason='deadline';
+    if(settings.simplify.enabled)result=finalizeParametricResult(prepared.data,left,right,start,
+      result.diagnostics.stopReason,settings.simplify);
     hooks.emit({stage:'finalize',result});
     return result;
   }
@@ -82,7 +84,7 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
     if(hooks.shouldAbort())throw new CancelledSolve();
   }
   if(expired()){
-    const result=finalizeFunctionResult(pool,prepared.data,start,'deadline');
+    const result=finalizeFunctionResult(pool,prepared.data,start,'deadline',settings.simplify);
     hooks.emit({stage:'finalize',result});
     return result;
   }
@@ -96,7 +98,7 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
   await hooks.yieldControl();
   if(hooks.shouldAbort())throw new CancelledSolve();
   if(expired()){
-    const result=finalizeFunctionResult(pool,prepared.data,start,'deadline');
+    const result=finalizeFunctionResult(pool,prepared.data,start,'deadline',settings.simplify);
     hooks.emit({stage:'finalize',result});
     return result;
   }
@@ -126,7 +128,7 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
     hooks.onPhase?.('beautify',hooks.now()-phaseStart);
   }
   phaseStart=hooks.now();
-  const result=finalizeFunctionResult(pool,prepared.data,start,expired()?'deadline':'completed');
+  const result=finalizeFunctionResult(pool,prepared.data,start,expired()?'deadline':'completed',settings.simplify);
   result.diagnostics.maxComplexityReached=maxComplexityReached;
   hooks.onPhase?.('finalize',hooks.now()-phaseStart);
   hooks.emit({stage:'finalize',result});
