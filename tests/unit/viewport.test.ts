@@ -61,4 +61,14 @@ describe('ViewportTransform', () => {
     expect(view.current.xMin).toBeLessThan(0);
     expect(view.current.yMax).toBeGreaterThan(2000);
   });
+
+  it('keeps image pixels square at both zoom limits',()=>{
+    const view=new ViewportTransform(initial,600,300);
+    view.fitImage(4000,2000);
+    for(const factor of [1e30,1e-30]){
+      view.zoomAt(300,150,factor);
+      const {xMin,xMax,yMin,yMax}=view.current;
+      expect((xMax-xMin)/view.width).toBeCloseTo((yMax-yMin)/view.height,12);
+    }
+  });
 });

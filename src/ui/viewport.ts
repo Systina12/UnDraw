@@ -76,8 +76,16 @@ export class ViewportTransform {
   zoomAt(px: number, py: number, factor: number): void {
     if (!Number.isFinite(factor) || factor <= 0) return;
     const anchor = this.screenToWorld(px, py);
-    const xSpan = Math.min(MAX_SPAN, Math.max(MIN_SPAN, (this.view.xMax - this.view.xMin) / factor));
-    const ySpan = Math.min(MAX_SPAN, Math.max(MIN_SPAN, (this.view.yMax - this.view.yMin) / factor));
+    let xSpan = Math.min(MAX_SPAN, Math.max(MIN_SPAN, (this.view.xMax - this.view.xMin) / factor));
+    let ySpan = Math.min(MAX_SPAN, Math.max(MIN_SPAN, (this.view.yMax - this.view.yMin) / factor));
+    if(this.imageSize){
+      // Keep one source pixel square even after the zoom limit is reached.
+      const ratio=this.width/this.height;
+      xSpan=Math.min(Math.min(MAX_SPAN,MAX_SPAN*ratio),
+        Math.max(Math.max(MIN_SPAN,MIN_SPAN*ratio),
+          (this.view.xMax-this.view.xMin)/factor));
+      ySpan=xSpan/ratio;
+    }
     const xMin = anchor.x - px / this.width * xSpan;
     const yMax = anchor.y + py / this.height * ySpan;
     this.view = { xMin, xMax: xMin + xSpan, yMin: yMax - ySpan, yMax };

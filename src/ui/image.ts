@@ -4,6 +4,7 @@ import type {EdgeDetail,ImageContour} from '../image/edges';
 
 export interface ImageReference {
   bitmap:ImageBitmap;
+  originalBitmap?:ImageBitmap;
   width:number;
   height:number;
   bounds:{xMin:number;xMax:number;yMin:number;yMax:number};
@@ -29,10 +30,11 @@ export async function loadImage(file:File):Promise<ImageReference> {
     context.drawImage(source,0,0,width,height);
     const pixels=context.getImageData(0,0,width,height).data;
     const bitmap=await createImageBitmap(scratch);
-    return {bitmap,width,height,pixels,
+    // A small preview keeps ordinary canvas redraws fast; zoom uses the source.
+    return {bitmap,originalBitmap:source,width,height,pixels,
       bounds:{xMin:0,xMax:source.width,yMin:0,yMax:source.height},
       contours:[]};
-  }finally{source.close();}
+  }catch(error){source.close();throw error;}
 }
 
 export function imageToWorld(image:ImageReference,x:number,y:number):{x:number;y:number}{
@@ -65,7 +67,10 @@ export function paintImage(ctx:CanvasRenderingContext2D,image:ImageReference,vie
   const lower=view.worldToScreen(image.bounds.xMax,image.bounds.yMin);
   ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.globalAlpha=.34;
-  ctx.drawImage(image.bitmap,upper.x,upper.y,lower.x-upper.x,lower.y-upper.y);
+  const width=lower.x-upper.x,height=lower.y-upper.y;
+  const bitmap=image.originalBitmap&&(width>image.width||height>image.height)?
+    image.originalBitmap:image.bitmap;
+  ctx.drawImage(bitmap,upper.x,upper.y,width,height);
   ctx.globalAlpha=1;
   ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.lineCap='round';
   for(let i=0;i<image.contours.length;i++){
@@ -78,6 +83,11 @@ export function paintImage(ctx:CanvasRenderingContext2D,image:ImageReference,vie
     ctx.stroke();
   }
   ctx.restore();
+}
+
+export function closeImage(image:ImageReference):void {
+  image.bitmap.close();
+  if(image.originalBitmap&&image.originalBitmap!==image.bitmap)image.originalBitmap.close();
 }
 
 export class ImageEdgeClient {

@@ -1,5 +1,5 @@
 import {expect,it,vi} from 'vitest';
-import {contourToStroke,imageToWorld,loadImage,nearestContour,
+import {closeImage,contourToStroke,imageToWorld,loadImage,nearestContour,paintImage,
   type ImageReference} from '../../src/ui/image';
 import {ViewportTransform} from '../../src/ui/viewport';
 
@@ -21,8 +21,8 @@ it('maps reduced detection pixels to the original image resolution',()=>{
 it('keeps source image dimensions when detection reduces a large bitmap',async()=>{
   const source={width:4000,height:2000,close:vi.fn()} as unknown as ImageBitmap;
   const preview={width:900,height:450,close:vi.fn()} as unknown as ImageBitmap;
-  vi.stubGlobal('createImageBitmap',vi.fn(async(input:File|HTMLCanvasElement)=>
-    input instanceof File?source:preview));
+  const createBitmap=vi.fn(async(input:File|HTMLCanvasElement)=>input instanceof File?source:preview);
+  vi.stubGlobal('createImageBitmap',createBitmap);
   const context=vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue({
     fillRect:vi.fn(),drawImage:vi.fn(),getImageData:()=>({
       data:new Uint8ClampedArray(900*450*4),
@@ -33,8 +33,25 @@ it('keeps source image dimensions when detection reduces a large bitmap',async()
     expect(image.width).toBe(900);
     expect(image.height).toBe(450);
     expect(image.bounds).toEqual({xMin:0,xMax:4000,yMin:0,yMax:2000});
-    expect(source.close).toHaveBeenCalledOnce();
+    expect(image.bitmap).toBe(preview);
+    expect(image.originalBitmap).toBe(source);
+    expect(createBitmap).toHaveBeenCalledTimes(2);
+    expect(source.close).not.toHaveBeenCalled();
+    expect(preview.close).not.toHaveBeenCalled();
     expect(imageToWorld(image,449.5,224.5)).toEqual({x:2000,y:1000});
-    image.bitmap.close();
+    const ctx={save:vi.fn(),restore:vi.fn(),setTransform:vi.fn(),drawImage:vi.fn(),
+      beginPath:vi.fn(),stroke:vi.fn()} as unknown as CanvasRenderingContext2D;
+    const view=new ViewportTransform({xMin:-5,xMax:5,yMin:-5,yMax:5},700,500);
+    view.fitImage(4000,2000);
+    paintImage(ctx,image,view,1,new Set());
+    expect(ctx.drawImage).toHaveBeenLastCalledWith(preview,expect.any(Number),
+      expect.any(Number),expect.any(Number),expect.any(Number));
+    view.zoomAt(350,250,6);
+    paintImage(ctx,image,view,1,new Set());
+    expect(ctx.drawImage).toHaveBeenLastCalledWith(source,expect.any(Number),
+      expect.any(Number),expect.any(Number),expect.any(Number));
+    closeImage(image);
+    expect(source.close).toHaveBeenCalledOnce();
+    expect(preview.close).toHaveBeenCalledOnce();
   }finally{context.mockRestore();vi.unstubAllGlobals();}
 });
