@@ -37,7 +37,7 @@ canvas{display:block;width:100%;height:clamp(380px,58vh,660px);border:1px solid 
 .formula-row{display:flex;align-items:center;justify-content:center;gap:16px;min-width:0;padding:5px 0}
 .formula-label{flex:0 0 170px;text-align:right;color:#8294a9;font-size:12px;font-weight:700;white-space:normal}
 .formula-expression{min-width:0;overflow-x:auto;text-align:left}
-.quality{color:#3e7a6d;font-size:13px;min-height:21px;margin:3px 0 18px}.choices{display:inline-flex;gap:3px;padding:4px;background:#f1f5f9;border-radius:11px}
+.quality{color:#3e7a6d;font-size:13px;min-height:21px;margin:3px 0 10px}.choices{display:flex;width:fit-content;max-width:100%;gap:3px;padding:4px;margin:0 auto 18px;background:#f1f5f9;border-radius:11px}
 .choices button{border:0;background:transparent;color:#5b6e84;border-radius:8px;padding:9px clamp(14px,3vw,26px);font-size:13px;font-weight:650}
 .choices button[aria-pressed="true"]{background:white;color:#1d5d94;box-shadow:0 2px 8px #24446120}
 .plain-text{color:#7a8da1;font-size:12px;max-width:100%;overflow-x:auto;white-space:nowrap;min-height:16px;margin:13px 0}
