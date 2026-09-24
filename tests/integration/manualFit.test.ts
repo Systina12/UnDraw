@@ -52,7 +52,7 @@ it('waits for Find functions, sends every stroke and invalidates results on a mo
     root.querySelector<HTMLInputElement>('[data-simplify="deformation"]')!.checked=true;
     root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.click();
     expect(requests[2].options.simplify).toEqual({enabled:true,translation:true,scaling:true,
-      deformation:true,tolerance:.1});
+      deformation:true,coefficients:true,tolerance:.1});
     root.querySelector<HTMLButtonElement>('[data-action="undo"]')!.click();
     expect(root.querySelector('[data-formula]')!.textContent).toContain('1 stroke ready');
   }finally{

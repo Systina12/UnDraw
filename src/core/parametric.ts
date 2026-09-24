@@ -94,8 +94,8 @@ export function finalizeParametricResult(data:ParametricData,left:CandidatePool,
     const yChoices=[balanced.y,...relaxedCandidates(balanced.y,ys,right.data,preference,scale).slice(0,5)];
     const alternatives:Pair[]=[];
     for(const xc of xChoices)for(const yc of yChoices){
-      if(!allowedChange(balanced.x,xc,left.data,preference,scale)||
-        !allowedChange(balanced.y,yc,right.data,preference,scale))continue;
+      if(!allowedChange(balanced.x,xc,left.data,preference,scale,preference.coefficients&&xc!==balanced.x)||
+        !allowedChange(balanced.y,yc,right.data,preference,scale,preference.coefficients&&yc!==balanced.y))continue;
       const pair=makePair(xc,yc);
       if(!pair||pair.result.rmse>balanced.result.rmse+preference.tolerance*scale)continue;
       let sumChange=0,peakChange=0;

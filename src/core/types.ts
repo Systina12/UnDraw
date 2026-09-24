@@ -14,6 +14,8 @@ export interface SimplicityOptions {
   translation: boolean;
   scaling: boolean;
   deformation: boolean;
+  /** Snap individual low-impact literals even when their change type is disabled. */
+  coefficients: boolean;
 }
 
 export interface SolverOptions {

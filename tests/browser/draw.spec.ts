@@ -71,6 +71,7 @@ test('optional error limit shortens decimals and keeps an accurate alternative',
   await page.getByRole('button',{name:'Accurate',exact:true}).click();
   await expect(page.locator('[data-plain]')).toContainText('1.94');
   await page.getByRole('checkbox',{name:'Scale'}).uncheck();
+  await page.getByRole('checkbox',{name:'Round low-impact coefficients'}).uncheck();
   await expect(page.getByTestId('formula')).toContainText('stroke ready');
   await page.getByRole('button',{name:'Find functions'}).click();
   await expect(page.getByRole('button',{name:'Balanced',exact:true})).toHaveAttribute('aria-pressed','true');

@@ -31,6 +31,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
           <label><input type="checkbox" data-simplify="translation" checked> Shift</label>
           <label><input type="checkbox" data-simplify="scaling" checked> Scale</label>
           <label><input type="checkbox" data-simplify="deformation"> Reshape</label>
+          <label><input type="checkbox" data-simplify="coefficients" checked> Round low-impact coefficients</label>
           <label class="simplicity-tolerance">Limit
             <select data-simplify="tolerance" aria-label="Allowed deviation">
               <option value="0.02">Subtle · 2%</option><option value="0.05" selected>Moderate · 5%</option>
@@ -38,7 +39,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
             </select>
           </label>
         </fieldset>
-        <p>RMS change relative to half the drawn height (or half the bounding-box diagonal for a parametric curve). Accurate keeps the original fit.</p>
+        <p>Coefficient rounding can use up to one quarter of the selected limit for each disabled change type. Shift, Scale and Reshape permit larger changes. Accurate keeps the original fit. Limit measures RMS change against half the drawn height (or parametric half-diagonal).</p>
       </details>
       <div class="toolbar" role="group" aria-label="Canvas controls">
         <button type="button" data-action="undo" title="Undo previous stroke (Ctrl+Z)">↶ Undo</button>
@@ -115,7 +116,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   const simplicityOptions=():SolverOptions['simplify']=>{
     const checked=(name:string)=>root.querySelector<HTMLInputElement>(`[data-simplify="${name}"]`)!.checked;
     return {enabled:checked('enabled'),translation:checked('translation'),scaling:checked('scaling'),
-      deformation:checked('deformation'),
+      deformation:checked('deformation'),coefficients:checked('coefficients'),
       tolerance:Number(root.querySelector<HTMLSelectElement>('[data-simplify="tolerance"]')!.value)};
   };
   const request=()=>{
