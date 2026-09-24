@@ -8,7 +8,7 @@ import {renderMultiFormula,type Choice} from './formulaPanel';
 import {createUiState,appendStroke,undo,clear,selectCandidate,type UiState,type UiSnapshot} from './state';
 import {copyToClipboard,renderCopyText} from './controls';
 import {attachPanGesture} from './gestures';
-import {loadImage,paintImage,contourToStroke,nearestContour,ImageEdgeClient,
+import {loadImage,closeImage,paintImage,contourToStroke,nearestContour,ImageEdgeClient,
   type ImageReference} from './image';
 import type {EdgeDetail} from '../image/edges';
 
@@ -157,7 +157,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     }
   };
   const removeImage=()=>{
-    imageVersion++;edgeWorker.cancel();image?.bitmap.close();image=null;selectEdges=false;
+    imageVersion++;edgeWorker.cancel();if(image)closeImage(image);image=null;selectEdges=false;
     imported.clear();refreshImageControls();
     imageStatus.textContent='Import an image to detect its edges on this device.';
   };
@@ -252,8 +252,8 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     const version=++imageVersion;edgeWorker.cancel();
     imageStatus.textContent='Opening image…';
     void loadImage(file).then(reference=>{
-      if(version!==imageVersion){reference.bitmap.close();return;}
-      cancel();image?.bitmap.close();image=reference;imported.clear();
+      if(version!==imageVersion){closeImage(reference);return;}
+      cancel();if(image)closeImage(image);image=reference;imported.clear();
       view.fitImage(reference.bounds.xMax,reference.bounds.yMax);
       state={...createUiState(),mode:state.mode};selectEdges=true;refreshImageControls();update();
       void detect(root.querySelector<HTMLSelectElement>('[data-image-detail] select')!.value as EdgeDetail);
