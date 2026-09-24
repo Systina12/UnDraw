@@ -5,6 +5,7 @@ import katex from 'katex';
 import type {SolveResult,MultiSolveResult} from '../../src/core/types';
 
 it('keeps an undo history, clears drawings and tracks candidate selection',()=>{
+  expect(createUiState().selected).toBe('accurate');
   const first=appendStroke(createUiState(),[{x:0,y:1,t:0},{x:1,y:2,t:1}]);
   const second=appendStroke(first,[{x:0,y:2,t:2},{x:1,y:3,t:3}]);
   expect(second.strokes).toHaveLength(2);

@@ -4,6 +4,7 @@ import {drawWorldCurve,drawWorldPath} from './helpers';
 test('draws, switches Pareto choices, copies LaTeX, undoes and clears',async ({page,context})=>{
   await context.grantPermissions(['clipboard-read','clipboard-write']);
   await page.goto('/');
+  await expect(page.getByRole('button',{name:'Accurate',exact:true})).toHaveAttribute('aria-pressed','true');
   await drawWorldCurve(page,x=>2*Math.sin(Math.PI*x));
   const formula=page.getByTestId('formula');
   await expect(formula).toContainText('1 stroke ready');
@@ -46,7 +47,7 @@ test('multiple strokes wait for the button and show each expression',async ({pag
   await expect(page.locator('.formula-row')).toHaveCount(2);
   await expect(page.getByTestId('formula')).toContainText('Stroke 1');
   await expect(page.getByTestId('formula')).toContainText('Stroke 2');
-  await expect(page.getByRole('button',{name:'Balanced',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('button',{name:'Accurate',exact:true})).toHaveAttribute('aria-pressed','true');
 });
 
 test('automatic mode can merge two collinear strokes into one formula',async({page})=>{
@@ -66,6 +67,9 @@ test('optional error limit shortens decimals and keeps an accurate alternative',
   await page.getByRole('checkbox',{name:'Allow a little error for fewer digits'}).check();
   await page.getByRole('combobox',{name:'Allowed deviation'}).selectOption('0.10');
   await page.getByRole('button',{name:'Find functions'}).click();
+  await expect(page.getByRole('button',{name:'Accurate',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-plain]')).toContainText('1.94');
+  await page.getByRole('button',{name:'Balanced',exact:true}).click();
   await expect(page.locator('[data-quality]')).toContainText('Shorter formula within selected limit');
   await expect(page.locator('[data-plain]')).toContainText('2 * x');
   await page.getByRole('button',{name:'Accurate',exact:true}).click();
@@ -74,6 +78,6 @@ test('optional error limit shortens decimals and keeps an accurate alternative',
   await page.getByRole('checkbox',{name:'Round low-impact coefficients'}).uncheck();
   await expect(page.getByTestId('formula')).toContainText('stroke ready');
   await page.getByRole('button',{name:'Find functions'}).click();
-  await expect(page.getByRole('button',{name:'Balanced',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('button',{name:'Accurate',exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('[data-plain]')).toContainText('1.94');
 });
