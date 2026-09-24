@@ -3,7 +3,7 @@ import type { ViewportTransform } from './viewport';
 
 export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTransform,
   onComplete: (points: Point[]) => void, onDraw?: (points: Point[], source: PointerEvent) => void,
-  onCancel?: () => void): () => void {
+  onCancel?: () => void,canDraw: (event: PointerEvent) => boolean=()=>true): () => void {
   let active: number | null = null;
   let points: Point[] = [];
   const touches = new Set<number>();
@@ -44,7 +44,7 @@ export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTran
       }
       if (touchPanning) return;
     }
-    if (active !== null || event.button !== 0 || event.shiftKey) return;
+    if (active !== null || event.button !== 0 || event.shiftKey || !canDraw(event)) return;
     active = event.pointerId;
     points = [];
     canvas.setPointerCapture?.(event.pointerId);
