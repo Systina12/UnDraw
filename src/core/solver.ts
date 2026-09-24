@@ -4,7 +4,7 @@ import type {Candidate} from '../search/producer';
 import {DEFAULT_OPTIONS} from './options';
 import {preprocess,InvalidCurveError} from './preprocess';
 import {CandidatePool} from '../search/candidatePool';
-import {selectRepresentatives} from '../search/pareto';
+import {paretoPrune,selectRepresentatives} from '../search/pareto';
 import {qualityOf} from './quality';
 import {evaluate} from '../expr/evaluate';
 import {toLatex} from '../expr/latex';
@@ -16,6 +16,7 @@ import {searchSymbolic} from '../search/symbolic';
 import {solveParametric} from './parametric';
 import {allowedChange,descriptionCost,relaxedCandidates,resolveSimplicity} from '../beautify/relaxed';
 import type {SimplicityOptions} from './types';
+import type {Expr} from '../expr/ast';
 
 export function makeCandidateResult(candidate:Candidate,data:CurveData):CandidateResult {
   const x=Array.from(data.x);
@@ -39,8 +40,8 @@ export function needsSymbolicSearch(pool:CandidatePool):boolean {
 }
 
 export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:number,stopReason='completed',
-  simplicity?:Partial<SimplicityOptions>):SolveResult {
-  const frontier=pool.frontier();
+  simplicity?:Partial<SimplicityOptions>,accept?:(expr:Expr)=>boolean):SolveResult {
+  const frontier=accept?paretoPrune(pool.all().filter(candidate=>accept(candidate.expr))):pool.frontier();
   if(!frontier.length)throw new InvalidCurveError('no-finite-samples');
   const representatives=selectRepresentatives(frontier,data.sigmaDraw);
   const preference=resolveSimplicity(simplicity);
@@ -48,10 +49,12 @@ export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:n
   let choices=frontier;
   if(preference.enabled&&preference.tolerance>0){
     const baseline=representatives.balanced;
-    const seed=[baseline,...pool.all().filter(candidate=>candidate.signature!==baseline.signature)
+    const seed=[baseline,...pool.all().filter(candidate=>candidate.signature!==baseline.signature&&
+      (!accept||accept(candidate.expr)))
       .sort((a,b)=>a.score-b.score||descriptionCost(a)-descriptionCost(b)).slice(0,4)];
     const alternatives=[...frontier.filter(candidate=>allowedChange(baseline,candidate,data,preference)),
-      ...relaxedCandidates(baseline,seed,data,preference)];
+      ...relaxedCandidates(baseline,seed,data,preference)]
+      .filter(candidate=>!accept||accept(candidate.expr));
     const ranked=[baseline,...alternatives].sort((a,b)=>descriptionCost(a)-descriptionCost(b)||
       a.metrics.rmse-b.metrics.rmse);
     if(descriptionCost(ranked[0])<descriptionCost(balanced)-.1)balanced=ranked[0];
