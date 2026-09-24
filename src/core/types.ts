@@ -7,6 +7,15 @@ export interface Viewport {
 
 export interface Point { x: number; y: number; t: number }
 
+export interface SimplicityOptions {
+  enabled: boolean;
+  /** Allowed RMS deviation as a fraction of the vertical half-range. */
+  tolerance: number;
+  translation: boolean;
+  scaling: boolean;
+  deformation: boolean;
+}
+
 export interface SolverOptions {
   sampleCount: number;
   functionBucketCount: number;
@@ -18,6 +27,7 @@ export interface SolverOptions {
   timeBudgetMs: number | null;
   enableParametricFallback: boolean;
   deterministicSeed: number;
+  simplify: Partial<SimplicityOptions>;
 }
 
 import type {Expr} from '../expr/ast';
@@ -36,6 +46,7 @@ export interface CandidateResult {
 }
 export interface SolveResult {
   mode:'function'|'parametric';
+  simplified?: boolean;
   best:CandidateResult;
   simple:CandidateResult;
   balanced:CandidateResult;

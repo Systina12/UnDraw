@@ -1,6 +1,7 @@
 import type {Point,SolverOptions,FitMode,MultiSolveResult,SolveResult} from './types';
 import {solveCurveProgressive,CancelledSolve} from './progressive';
 import {finalizeFunctionResult} from './solver';
+import {preprocess} from './preprocess';
 import {classifyStroke} from './validateFunction';
 import {InvalidCurveError} from './preprocess';
 import {evaluate} from '../expr/evaluate';
@@ -10,6 +11,9 @@ import {CandidatePool} from '../search/candidatePool';
 import {fitPolynomial} from '../models/polynomial';
 import {expressionConstantCost} from '../search/scoring';
 import {operatorComplexity} from '../expr/complexity';
+import {createParametricAxisPool,finalizeParametricResult} from './parametric';
+import {substituteVariable} from '../expr/substitute';
+import {variable} from '../expr/ast';
 
 interface Segment {points:Point[];strokeIndex:number;noise:number;stride:number}
 interface Group {atoms:Segment[];result:SolveResult}
@@ -85,8 +89,7 @@ function score(groups:readonly Group[]):number {
 }
 
 /** Fit only observed intervals. The single-stroke resampler discards disconnected islands. */
-function fitMerged(a:Group,b:Group):SolveResult {
-  const atoms=[...a.atoms,...b.atoms];
+function mergedData(atoms:Segment[]){
   const samples=atoms.flatMap(atom=>{
     const sampled=resampleFunction(atom.points,Math.min(64,Math.max(24,atom.points.length)));
     return Array.from(sampled.x,(x,i)=>({x,y:sampled.rawY[i],weight:sampled.weights[i]}));
@@ -95,7 +98,10 @@ function fitMerged(a:Group,b:Group):SolveResult {
   const weights=Float64Array.from(samples,p=>p.weight);
   const domain:[number,number]=[x[0],x.at(-1)!];
   const noise=Math.max(1e-9,...atoms.map(atom=>atom.noise));
-  const data=normalizeCurve({x,rawY,weights,domain},rawY,noise);
+  return normalizeCurve({x,rawY,weights,domain},rawY,noise);
+}
+function fitMerged(a:Group,b:Group):SolveResult {
+  const data=mergedData([...a.atoms,...b.atoms]);
   const pool=new CandidatePool(data,32);
   for(const group of [a,b])for(const candidate of [group.result.simple,group.result.balanced,group.result.accurate]){
     // Existing fitted expressions provide useful nonlinear models without another full search.
@@ -196,6 +202,8 @@ function compatible(a:Group,b:Group):boolean {
 
 export async function solveStrokesProgressive(strokes:readonly (readonly Point[])[],mode:FitMode,
   options:Partial<SolverOptions>={},hooks:MultiSolveHooks=defaultHooks):Promise<MultiSolveResult> {
+  // Decide how to group strokes using the original fits. Presentation preferences apply afterward.
+  const fitOptions:Partial<SolverOptions>={...options,simplify:{enabled:false}};
   // A shared deadline prevents the number of strokes from multiplying the search budget.
   const deadline=performance.now()+(options.timeBudgetMs&&options.timeBudgetMs>0?options.timeBudgetMs:2500);
   const atoms:Segment[]=[];
@@ -215,7 +223,7 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
       const remaining=atoms.length-index;
       const budget=options.timeBudgetMs===0?0:Math.min(900,
         Math.max(0,(deadline-performance.now()-(mode==='auto'?400:0))/remaining));
-      const result=await solveCurveProgressive(atom.points,{...options,timeBudgetMs:budget},{
+      const result=await solveCurveProgressive(atom.points,{...fitOptions,timeBudgetMs:budget},{
         now:()=>performance.now(),shouldAbort:hooks.shouldAbort,yieldControl:hooks.yieldControl,
         emit:message=>{
           if(message.result){
@@ -235,7 +243,7 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
   }
   if(!groups.length)throw new InvalidCurveError('no-finite-samples');
   if(mode==='auto'){
-    await splitIfSimpler(groups,options,hooks,mode,skipped,deadline);
+    await splitIfSimpler(groups,fitOptions,hooks,mode,skipped,deadline);
     let improved=true;
     while(improved&&groups.length>1&&performance.now()<deadline){
       improved=false;
@@ -262,6 +270,52 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
         improved=true;
         hooks.emit(snapshot(groups,mode,skipped));
       }
+    }
+  }
+  if(options.simplify?.enabled)for(const group of groups){
+    if(hooks.shouldAbort())throw new CancelledSolve();
+    try{
+      if(group.result.mode==='parametric'){
+        if(group.atoms.length!==1)continue;
+        const prepared=preprocess(group.atoms[0].points,options.sampleCount??256);
+        if(prepared.mode!=='parametric')continue;
+        const left=createParametricAxisPool(prepared.data,'x',32);
+        const right=createParametricAxisPool(prepared.data,'y',32);
+        for(const candidate of [...group.result.pareto,group.result.balanced,group.result.accurate]){
+          if(!candidate.parametric)continue;
+          for(const [pool,expr] of [[left,candidate.parametric.xExpr],[right,candidate.parametric.yExpr]] as const){
+            const axisExpr=substituteVariable(expr,'t',variable('x'));
+            pool.add({expr:axisExpr,modelFamily:candidate.modelFamily??'Parametric',
+              params:[],freeParameterCount:0,approximation:candidate.approximation});
+          }
+        }
+        const simplified=finalizeParametricResult(prepared.data,left,right,performance.now(),
+          group.result.diagnostics.stopReason,options.simplify);
+        group.result={...simplified,diagnostics:group.result.diagnostics};
+        hooks.emit(snapshot(groups,mode,skipped));
+        await hooks.yieldControl();
+        continue;
+      }
+      const data=group.atoms.length===1?preprocess(group.atoms[0].points,
+        options.sampleCount??256):null;
+      const curve=data?.mode==='function'?data.data:mergedData(group.atoms);
+      const pool=new CandidatePool(curve,Math.max(32,group.result.pareto.length+4));
+      const results=[...group.result.pareto,group.result.balanced];
+      for(const candidate of results){
+        const freeParameterCount=Math.max(0,Math.round(candidate.complexity-
+          operatorComplexity(candidate.expr)-expressionConstantCost(candidate.expr)));
+        pool.add({expr:candidate.expr,modelFamily:candidate.modelFamily??'Fit',params:[],
+          approximation:candidate.approximation,freeParameterCount});
+      }
+      const simplified=finalizeFunctionResult(pool,curve,performance.now(),
+        group.result.diagnostics.stopReason,options.simplify);
+      group.result={...simplified,diagnostics:group.result.diagnostics};
+      hooks.emit(snapshot(groups,mode,skipped));
+      await hooks.yieldControl();
+    }catch(error){
+      if(error instanceof CancelledSolve)throw error;
+      if(!(error instanceof InvalidCurveError)&&
+        !(error instanceof Error&&error.message==='No valid parametric candidate'))throw error;
     }
   }
   return snapshot(groups,mode,skipped);

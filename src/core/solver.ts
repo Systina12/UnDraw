@@ -14,6 +14,8 @@ import {beautifyPool} from '../beautify/beautify';
 import {produceFallback} from '../search/fallback';
 import {searchSymbolic} from '../search/symbolic';
 import {solveParametric} from './parametric';
+import {allowedChange,descriptionCost,relaxedCandidates,resolveSimplicity} from '../beautify/relaxed';
+import type {SimplicityOptions} from './types';
 
 export function makeCandidateResult(candidate:Candidate,data:CurveData):CandidateResult {
   const x=Array.from(data.x);
@@ -36,15 +38,37 @@ export function needsSymbolicSearch(pool:CandidatePool):boolean {
     (best.modelFamily==='Polynomial'&&best.complexity>12)||!close;
 }
 
-export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:number,stopReason='completed'):SolveResult {
+export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:number,stopReason='completed',
+  simplicity?:Partial<SimplicityOptions>):SolveResult {
   const frontier=pool.frontier();
   if(!frontier.length)throw new InvalidCurveError('no-finite-samples');
   const representatives=selectRepresentatives(frontier,data.sigmaDraw);
+  const preference=resolveSimplicity(simplicity);
+  let simple=representatives.simple,balanced=representatives.balanced;
+  let choices=frontier;
+  if(preference.enabled&&preference.tolerance>0){
+    const baseline=representatives.balanced;
+    const seed=[baseline,...pool.all().filter(candidate=>candidate.signature!==baseline.signature)
+      .sort((a,b)=>a.score-b.score||descriptionCost(a)-descriptionCost(b)).slice(0,4)];
+    const alternatives=[...frontier.filter(candidate=>allowedChange(baseline,candidate,data,preference)),
+      ...relaxedCandidates(baseline,seed,data,preference)];
+    const ranked=[baseline,...alternatives].sort((a,b)=>descriptionCost(a)-descriptionCost(b)||
+      a.metrics.rmse-b.metrics.rmse);
+    if(descriptionCost(ranked[0])<descriptionCost(balanced)-.1)balanced=ranked[0];
+    simple=ranked[0];
+    choices=[...new Map([...frontier,...alternatives].map(c=>[c.signature,c])).values()]
+      .sort((a,b)=>descriptionCost(a)-descriptionCost(b)||a.metrics.rmse-b.metrics.rmse)
+      .filter((candidate,index,array)=>!array.slice(0,index).some(prior=>
+        descriptionCost(prior)<=descriptionCost(candidate)&&prior.metrics.rmse<=candidate.metrics.rmse));
+  }
   const convert=(candidate:Candidate)=>makeCandidateResult(candidate,data);
-  return {mode:'function',best:convert(representatives.balanced),simple:convert(representatives.simple),
-    balanced:convert(representatives.balanced),accurate:convert(representatives.accurate),
-    pareto:frontier.map(convert),domain:data.domain,noise:data.sigmaDraw,
-    quality:qualityOf(representatives.balanced,data.sigmaDraw),
+  const simplified=balanced.signature!==representatives.balanced.signature;
+  const quality=qualityOf(balanced,data.sigmaDraw);
+  const originalQuality=qualityOf(representatives.balanced,data.sigmaDraw);
+  return {mode:'function',simplified,best:convert(balanced),simple:convert(simple),
+    balanced:convert(balanced),accurate:convert(representatives.accurate),
+    pareto:choices.map(convert),domain:data.domain,noise:data.sigmaDraw,
+    quality:simplified&&quality==='low'&&originalQuality!=='low'?'approximation':quality,
     diagnostics:{runtimeMs:performance.now()-start,candidatesGenerated:pool.generated,candidatesFitted:pool.size,
       candidatesRejected:pool.rejected,maxComplexityReached:0,stopReason}};
 }
@@ -69,7 +93,7 @@ export function solveCurve(points:readonly Point[],options:Partial<SolverOptions
     for(const candidate of searchSymbolic(prepared.data,context,level=>{maxComplexityReached=level;}))pool.add(candidate);
     beautifyPool(pool);
   }
-  const result=finalizeFunctionResult(pool,prepared.data,start);
+  const result=finalizeFunctionResult(pool,prepared.data,start,'completed',settings.simplify);
   result.diagnostics.maxComplexityReached=maxComplexityReached;
   return result;
 }

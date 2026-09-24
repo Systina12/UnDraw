@@ -76,3 +76,29 @@ it('keeps a simple noisy sinusoid as one function',async()=>{
   const result=await solveStrokesProgressive([stroke],'auto',{timeBudgetMs:0});
   expect(result.groups).toHaveLength(1);
 });
+
+it('rounds each stroke after fitting, without changing automatic function grouping',async()=>{
+  const strokes=[0,3].map(offset=>makeStroke(x=>1.94*x+.07+offset,
+    {min:-1,max:1,count:40}));
+  const options={timeBudgetMs:0,simplify:{enabled:true,tolerance:.1,
+    translation:true,scaling:true,deformation:false}};
+  const per=await solveStrokesProgressive(strokes,'per-stroke',options);
+  expect(per.groups).toHaveLength(2);
+  for(const group of per.groups){
+    expect(group.result.mode).toBe('function');
+    expect(group.result.balanced.plain.length).toBeLessThanOrEqual(group.result.accurate.plain.length);
+    expect(group.result.balanced.rmse).toBeLessThan(.2);
+  }
+  const automatic=await solveStrokesProgressive(strokes,'auto',options);
+  expect(automatic.groups).toHaveLength(2);
+});
+
+it('keeps a parametric expression and its accurate version with simplification enabled',async()=>{
+  const circle=Array.from({length:100},(_,i)=>({x:1.94*Math.cos(2*Math.PI*i/99),
+    y:1.94*Math.sin(2*Math.PI*i/99),t:i}));
+  const result=await solveStrokesProgressive([circle],'per-stroke',
+    {timeBudgetMs:0,simplify:{enabled:true,tolerance:.1,translation:true,scaling:true,deformation:true}});
+  expect(result.groups[0].result.mode).toBe('parametric');
+  expect(result.groups[0].result.balanced.parametric?.xPlain).toContain('t');
+  expect(result.groups[0].result.accurate.rmse).toBeLessThan(.5);
+});

@@ -11,7 +11,8 @@ export function renderFormula(root:HTMLElement,result:SolveResult,kind:Choice='b
     katex.render(latex,target,{throwOnError:false,trust:false,output:'html'});
     target.title=`RMSE: ${candidate.rmse.toPrecision(3)} · Complexity: ${candidate.complexity} · ${candidate.modelFamily??'General'}`;
   }
-  if(quality)quality.textContent={excellent:'Excellent match',good:'Good match',approximation:'Approximation',low:'Low confidence'}[result.quality];
+  if(quality)quality.textContent={excellent:'Excellent match',good:'Good match',approximation:'Approximation',low:'Low confidence'}[result.quality]+
+    (kind!=='accurate'&&result.simplified?' · Shorter formula within selected limit':'');
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>{
     const selected=button.dataset.choice===kind;
     button.setAttribute('aria-pressed',String(selected));
@@ -43,7 +44,8 @@ export function renderMultiFormula(root:HTMLElement,batch:MultiSolveResult,kind:
     const worst=batch.groups.reduce((max,group)=>Math.max(max,levels.indexOf(group.result.quality)),0);
     const descriptions=['Excellent match','Good match','Approximation','Low confidence'];
     quality.textContent=`${batch.groups.length} function${batch.groups.length===1?'':'s'} · ${descriptions[worst]}`+
-      (batch.skipped.length?` · ${batch.skipped.length} short stroke${batch.skipped.length===1?'':'s'} skipped`:'');
+      (batch.skipped.length?` · ${batch.skipped.length} short stroke${batch.skipped.length===1?'':'s'} skipped`:'')+
+      (kind!=='accurate'&&batch.groups.some(group=>group.result.simplified)?' · Shorter formula within selected limit':'');
   }
   root.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach(button=>
     button.setAttribute('aria-pressed',String(button.dataset.choice===kind)));

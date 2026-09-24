@@ -20,6 +20,15 @@ canvas{display:block;width:100%;height:clamp(380px,58vh,660px);border:1px solid 
 .fit-modes label{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer}.fit-modes input{accent-color:#236aa5}
 .fit-button{border:0;border-radius:9px;padding:11px 18px;background:#236aa5;color:white;font-size:13px;font-weight:700}
 .fit-button:not(:disabled):hover{background:#185787}
+.simplicity-settings{margin:4px 4px 3px;padding:10px 13px;border:1px solid #dce5ee;border-radius:10px;color:#52677d;font-size:12px}
+.simplicity-settings summary{cursor:pointer;font-weight:700;color:#315a7f;list-style-position:inside}
+.simplicity-settings summary span{font-weight:500;color:#8294a9;margin-left:5px}
+.simplicity-master{display:inline-flex;align-items:center;gap:7px;margin:12px 0 6px;cursor:pointer}
+.simplicity-settings fieldset{border:0;margin:0;padding:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.simplicity-settings fieldset:disabled{opacity:.5}.simplicity-settings legend{width:100%;padding:2px 0 8px;color:#8294a9}
+.simplicity-settings fieldset label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.simplicity-settings input{accent-color:#236aa5}.simplicity-settings select{border:1px solid #dce5ee;background:#fff;color:#315a7f;padding:5px;border-radius:6px}
+.simplicity-settings p{margin:10px 0 0;color:#8294a9;line-height:1.4}
 .toolbar button:hover,.copy-actions button:hover{background:#f1f6fb;border-color:#b7cddf}
 .result{text-align:center;margin:24px auto 0;padding:26px clamp(15px,4vw,42px) 20px;background:#fff;border:1px solid #dce5ee;border-radius:20px;box-shadow:0 10px 35px #203c5c09}
 .eyebrow{color:#8294a9;font-size:10px;letter-spacing:.18em;font-weight:800}
