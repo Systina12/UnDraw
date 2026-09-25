@@ -50,6 +50,18 @@ test('multiple strokes wait for the button and show each expression',async ({pag
   await expect(page.getByRole('button',{name:'Accurate',exact:true})).toHaveAttribute('aria-pressed','true');
 });
 
+test('auto count includes a straight stroke drawn with one pointer move',async({page})=>{
+  await page.goto('/');
+  await drawWorldCurve(page,x=>x);
+  await drawWorldPath(page,[{x:.1,y:3.5},{x:2.1,y:1.1}]);
+  await expect(page.getByTestId('formula')).toContainText('2 strokes ready');
+  await page.getByRole('radio',{name:/Best fit/}).check();
+  await page.getByRole('button',{name:'Find functions'}).click();
+  await expect(page.locator('.formula-row')).toHaveCount(2);
+  await expect(page.locator('[data-quality]')).not.toContainText('skipped');
+  await expect(page.getByTestId('formula')).toContainText('stroke 2');
+});
+
 test('automatic mode can merge two collinear strokes into one formula',async({page})=>{
   await page.goto('/');
   await drawWorldCurve(page,x=>x,-2,-.3);

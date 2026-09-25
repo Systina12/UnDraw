@@ -30,12 +30,15 @@ function drawingNoise(raw: Float64Array, smooth: Float64Array): number {
 
 export function preprocess(points: readonly Point[], sampleCount = 256): PreprocessedCurve {
   const clean = sanitizeStroke(points);
-  if (clean.length < 8) throw new InvalidCurveError('too-few-points');
+  if (clean.length < 2) throw new InvalidCurveError('too-few-points');
   let arcLength = 0;
   for (let i = 1; i < clean.length; i++) arcLength += Math.hypot(clean[i].x - clean[i - 1].x, clean[i].y - clean[i - 1].y);
   if (!(arcLength > 1e-8)) throw new InvalidCurveError('stroke-too-small');
-  if (classifyStroke(clean) === 'parametric') {
-    const sampled = resampleParametric(clean, sampleCount);
+  // Pointer events may give a long, fast straight line only two or three samples.
+  // Preserve every observed corner while interpolating each sparse line segment.
+  const trace = clean.length < 8 ? densifySparseStroke(clean, arcLength) : clean;
+  if (classifyStroke(trace) === 'parametric') {
+    const sampled = resampleParametric(trace, sampleCount);
     const smoothX = smoothSeries(sampled.rawX);
     const smoothY = smoothSeries(sampled.rawY);
     const sigmaX = drawingNoise(sampled.rawX, smoothX);
@@ -45,11 +48,33 @@ export function preprocess(points: readonly Point[], sampleCount = 256): Preproc
       sigmaDraw: Math.hypot(sigmaX, sigmaY),
     } };
   }
-  const sampled = resampleFunction(clean, sampleCount);
+  const sampled = resampleFunction(trace, sampleCount);
   const smoothY = smoothSeries(sampled.rawY);
   const data=normalizeCurve(sampled,smoothY,drawingNoise(sampled.rawY,smoothY));
   data.features=extractFeatures(data);
   return { mode: 'function', data };
+}
+
+function densifySparseStroke(points:Point[],totalLength:number):Point[] {
+  const segments=points.slice(1).map((point,i)=>Math.hypot(point.x-points[i].x,point.y-points[i].y));
+  const additional=16-points.length;
+  const ideal=segments.map(length=>additional*length/totalLength);
+  const subdivisions=ideal.map(Math.floor);
+  let remaining=additional-subdivisions.reduce((sum,count)=>sum+count,0);
+  const byRemainder=ideal.map((amount,i)=>i).sort((a,b)=>(ideal[b]-subdivisions[b])-
+    (ideal[a]-subdivisions[a]));
+  for(let i=0;i<remaining;i++)subdivisions[byRemainder[i]]++;
+  const result=[points[0]];
+  for(let i=0;i<segments.length;i++){
+    const start=points[i],end=points[i+1];
+    for(let step=1;step<=subdivisions[i];step++){
+      const ratio=step/(subdivisions[i]+1);
+      result.push({x:start.x+(end.x-start.x)*ratio,y:start.y+(end.y-start.y)*ratio,
+        t:start.t+(end.t-start.t)*ratio});
+    }
+    result.push(end);
+  }
+  return result;
 }
 
 export class InvalidCurveError extends Error {

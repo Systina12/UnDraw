@@ -22,6 +22,23 @@ describe('pointer capture', () => {
     dispose();
   });
 
+  it('keeps a two-point line but discards a tiny accidental touch', () => {
+    const canvas=document.createElement('canvas');
+    canvas.setPointerCapture=vi.fn();canvas.releasePointerCapture=vi.fn();
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:100,height:100} as DOMRect);
+    const view=new ViewportTransform({xMin:-5,xMax:5,yMin:-5,yMax:5},100,100);
+    const completed=vi.fn(),cancelled=vi.fn();
+    captureStroke(canvas,view,completed,undefined,cancelled);
+    const pointer=(type:string,id:number,x:number)=>canvas.dispatchEvent(Object.assign(new Event(type),{
+      pointerId:id,button:0,clientX:x,clientY:50,
+    }));
+    pointer('pointerdown',1,10);pointer('pointerup',1,70);
+    pointer('pointerdown',2,20);pointer('pointerup',2,21);
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(completed.mock.calls[0][0]).toHaveLength(2);
+    expect(cancelled).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels the pending stroke and pans when two fingers move together', () => {
     const canvas = document.createElement('canvas');
     canvas.setPointerCapture = vi.fn();

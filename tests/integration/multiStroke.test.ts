@@ -13,6 +13,29 @@ it('keeps overlapping different strokes as separate functions',async()=>{
   expect(automatic.groups).toHaveLength(2);
 });
 
+it('fits a quickly drawn two-point line alongside longer strokes',async()=>{
+  const long=[line(-2,2),makeStroke(x=>Math.sin(x)-2,{min:-2,max:2,count:45})];
+  const quick=[{x:.1,y:3.5,t:0},{x:2.1,y:1.1,t:1}];
+  for(const mode of ['per-stroke','auto'] as const){
+    const result=await solveStrokesProgressive([...long,quick],mode,{timeBudgetMs:0});
+    expect(result.skipped,mode).toEqual([]);
+    expect(result.groups.some(group=>group.strokeIndices.includes(2)),mode).toBe(true);
+    const fit=result.groups.find(group=>group.strokeIndices.includes(2))!.result.accurate;
+    expect(fit.rmse,mode).toBeLessThan(.05);
+    expect(fit.plot.x[0],mode).toBeLessThan(.15);
+    expect(fit.plot.x.at(-1)!,mode).toBeGreaterThan(2);
+  }
+});
+
+it('keeps a sparse vertical stroke as a parametric fit',async()=>{
+  const vertical=[{x:2,y:-1,t:0},{x:2,y:2,t:1}];
+  const result=await solveStrokesProgressive([line(-2,2),vertical],'auto',{timeBudgetMs:0});
+  expect(result.skipped).toEqual([]);
+  const fitted=result.groups.find(group=>group.strokeIndices.includes(1));
+  expect(fitted?.result.mode).toBe('parametric');
+  expect(fitted?.result.accurate.plot.y.length).toBeGreaterThan(2);
+});
+
 it('joins collinear strokes when one expression explains both',async()=>{
   const result=await solveStrokesProgressive([line(-2,-.3),line(.3,2)],'auto',{timeBudgetMs:0});
   expect(result.groups).toHaveLength(1);

@@ -15,6 +15,19 @@ describe('curve preprocessing', () => {
     }
   });
 
+  it('recovers sparse straight strokes while retaining observed corners', () => {
+    for(const count of [2,3,7]){
+      const result=preprocess(makeStroke(x=>-1.2*x+3.62,{min:.1,max:2.1,count}));
+      expect(result.mode,`${count} samples`).toBe('function');
+      if(result.mode!=='function')continue;
+      expect(result.data.domain[0],`${count} samples`).toBeCloseTo(.1,1);
+      expect(result.data.domain[1],`${count} samples`).toBeCloseTo(2.1,1);
+    }
+    const corner=preprocess([{x:-1,y:0,t:0},{x:0,y:1,t:1},{x:1,y:0,t:2}]);
+    expect(corner.mode).toBe('function');
+    if(corner.mode==='function')expect(Math.max(...corner.data.rawY)).toBeGreaterThan(.9);
+  });
+
   it('keeps sparse endpoints when a continuous curve rises steeply', () => {
     for (const [count, fn] of [
       [8, (x: number) => Math.exp(3 * x)],
@@ -121,7 +134,7 @@ describe('curve preprocessing', () => {
       expect(result.data.closed).toBe(true);
       expect(result.data.rawX[0]).toBeCloseTo(result.data.rawX.at(-1)!, 8);
     }
-    expect(() => preprocess(circle.slice(0, 7))).toThrow(InvalidCurveError);
+    expect(() => preprocess(circle.slice(0, 1))).toThrow(InvalidCurveError);
   });
 
   it('uses a smoothing window that retains short series', () => {
