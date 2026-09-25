@@ -246,7 +246,7 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
     performance.now()+(options.timeBudgetMs&&options.timeBudgetMs>0?options.timeBudgetMs:2500);
   const atoms:Segment[]=[];
   for(let i=0;i<strokes.length;i++){
-    if(strokes[i].length<8)continue;
+    if(strokes[i].length<2)continue;
     const parts=mode==='auto'?splitAtReversals(strokes[i]):[[...strokes[i]]];
     for(const points of parts)atoms.push({points,strokeIndex:i,noise:0,
       stride:Math.max(1,Math.ceil(points.length/64))});

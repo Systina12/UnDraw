@@ -62,7 +62,13 @@ export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTran
     append(event);
     canvas.releasePointerCapture?.(event.pointerId);
     active = null;
-    onComplete([...points]);
+    const distance = points.slice(1).reduce((sum,point,i)=>{
+      const a=transform.worldToScreen(points[i].x,points[i].y);
+      const b=transform.worldToScreen(point.x,point.y);
+      return sum+Math.hypot(b.x-a.x,b.y-a.y);
+    },0);
+    if(points.length>=8||distance>=4)onComplete([...points]);
+    else onCancel?.();
   };
   canvas.addEventListener('pointerdown', down);
   canvas.addEventListener('pointermove', move);
