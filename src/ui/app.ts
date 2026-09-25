@@ -8,7 +8,7 @@ import {renderMultiFormula,type Choice} from './formulaPanel';
 import {createUiState,appendStroke,undo,clear,selectCandidate,type UiState,type UiSnapshot} from './state';
 import {copyToClipboard,renderCopyText} from './controls';
 import {attachPanGesture} from './gestures';
-import {loadImage,closeImage,paintImage,contourToStroke,nearestContour,ImageEdgeClient,
+import {loadImage,closeImage,paintImage,contourToStroke,nearestContour,matchSelectedContours,ImageEdgeClient,
   type ImageReference} from './image';
 import type {EdgeDetail} from '../image/edges';
 
@@ -120,6 +120,10 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   const update=()=>{
     if(state.result){
       renderMultiFormula(root,state.result,state.selected);
+      if(state.phase==='solving'){
+        const seen=new Set(state.result.groups.flatMap(group=>group.strokeIndices));
+        quality.textContent+=` · Finding more · ${seen.size}/${state.strokes.length} strokes analyzed`;
+      }
       plain.textContent=state.result.groups.map((group,i)=>
         `${state.result!.groups.length===1?'y':`y${i+1}`} = ${group.result[state.selected].plain}`).join('  ·  ');
     }
@@ -132,6 +136,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         state.phase==='invalid'?'Try longer, continuous strokes.':'Click Find functions when your drawing is ready.';
     }
     root.querySelectorAll<HTMLButtonElement>('[data-action^="copy-"]').forEach(button=>button.disabled=!state.result);
+    root.querySelector<HTMLElement>('.result')!.setAttribute('aria-busy',String(state.phase==='solving'));
     root.querySelector<HTMLButtonElement>('[data-action="fit"]')!.disabled=!state.strokes.length||drawing;
     draw();
   };
@@ -150,7 +155,10 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
     try{
       const contours=await edgeWorker.detect(reference,detail);
       if(version!==imageVersion||image!==reference)return;
-      reference.contours=contours;draw();
+      const previousSelected=[...imported.values()].filter(stroke=>state.strokes.includes(stroke));
+      reference.contours=contours;imported.clear();
+      for(const [index,stroke] of matchSelectedContours(reference,previousSelected))imported.set(index,stroke);
+      draw();
       const size=`${reference.bounds.xMax} × ${reference.bounds.yMax} px · (0, 0) bottom left`;
       imageStatus.textContent=contours.length?
         `${size} · ${contours.length} edges detected · Tap a highlighted edge to add it as a stroke.`:
@@ -178,7 +186,8 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
       if(message.id!==requestId)return;
       if(drawing){
         if(message.type==='batch-progress'||message.type==='batch-done'){
-          beforeStroke={...beforeStroke,result:message.result};beforePhase='result';
+          beforeStroke={...beforeStroke,result:message.result};
+          beforePhase=message.type==='batch-done'?'result':'solving';
         }
         if(message.type==='invalid')beforePhase='invalid';
         return;
@@ -190,7 +199,8 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
         return;
       }
       if(message.type==='batch-progress'||message.type==='batch-done'){
-        state={...state,result:message.result,phase:'result'};update();
+        state={...state,result:message.result,
+          phase:message.type==='batch-done'?'result':'solving'};update();
       }
     });
   };
@@ -223,7 +233,7 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   },()=>{
     drawing=false;touchOrigin=null;
     state={...state,draft:[],strokes:beforeStroke.strokes,result:beforeStroke.result,
-      phase:beforeStroke.result?'result':beforePhase==='solving'&&requestId?'solving':
+      phase:beforePhase==='solving'&&requestId?'solving':beforeStroke.result?'result':
         beforePhase==='invalid'?'invalid':'idle'};
     update();
   },()=>!selectEdges);
@@ -268,7 +278,6 @@ export function createAppShell(root:HTMLElement):HTMLCanvasElement {
   });
   root.querySelector<HTMLSelectElement>('[data-image-detail] select')!.addEventListener('change',event=>{
     if(!image)return;
-    image.contours=[];imported.clear();draw();
     void detect((event.target as HTMLSelectElement).value as EdgeDetail);
   });
   root.querySelector<HTMLButtonElement>('[data-action="image-tool"]')!.addEventListener('click',()=>{

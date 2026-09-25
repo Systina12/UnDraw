@@ -3,6 +3,7 @@ import {DEFAULT_OPTIONS} from './options';
 import {preprocess,InvalidCurveError} from './preprocess';
 import {CandidatePool} from '../search/candidatePool';
 import {fastModelBank,quickModelBank} from '../search/modelBank';
+import {fitPolynomial} from '../models/polynomial';
 import {finalizeFunctionResult,needsSymbolicSearch} from './solver';
 import {beautifyPool} from '../beautify/beautify';
 import {produceFallback} from '../search/fallback';
@@ -68,7 +69,13 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
   }
   const pool=new CandidatePool(prepared.data,settings.semanticBeamWidth);
   let phaseStart=hooks.now();
-  for(const candidate of quickModelBank(prepared.data))pool.add(candidate);
+  for(let degree=0;degree<=2;degree++){
+    const candidate=fitPolynomial(prepared.data,degree);if(candidate)pool.add(candidate);
+  }
+  hooks.emit({stage:'first-fit',result:finalizeFunctionResult(pool,prepared.data,start)});
+  await hooks.yieldControl();
+  if(hooks.shouldAbort())throw new CancelledSolve();
+  for(const candidate of quickModelBank(prepared.data,3))pool.add(candidate);
   const fast=finalizeFunctionResult(pool,prepared.data,start);
   hooks.onPhase?.('fast-models',hooks.now()-phaseStart);
   hooks.emit({stage:'fast-models',result:fast});
@@ -124,7 +131,9 @@ export async function solveCurveProgressive(points:readonly Point[],options:Part
     }
     hooks.onPhase?.('symbolic',hooks.now()-phaseStart);
     phaseStart=hooks.now();
-    if(!expired())beautifyPool(pool);
+    // A short final beautification pass is worth completing after the deadline:
+    // symbolic fitting often discovers the shape just before time runs out.
+    beautifyPool(pool);
     hooks.onPhase?.('beautify',hooks.now()-phaseStart);
   }
   phaseStart=hooks.now();

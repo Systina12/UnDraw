@@ -58,7 +58,11 @@ export function finalizeFunctionResult(pool:CandidatePool,data:CurveData,start:n
     const ranked=[baseline,...alternatives].sort((a,b)=>descriptionCost(a)-descriptionCost(b)||
       a.metrics.rmse-b.metrics.rmse);
     if(descriptionCost(ranked[0])<descriptionCost(balanced)-.1)balanced=ranked[0];
-    simple=ranked[0];
+    const simpleLimit=2.5*Math.max(data.sigmaDraw,representatives.accurate.metrics.rmse);
+    simple=[representatives.simple,...alternatives]
+      .filter(candidate=>candidate.metrics.rmse<=simpleLimit+1e-9)
+      .sort((a,b)=>a.complexity-b.complexity||descriptionCost(a)-descriptionCost(b)||
+        a.metrics.rmse-b.metrics.rmse)[0]??representatives.simple;
     choices=[...new Map([...frontier,...alternatives].map(c=>[c.signature,c])).values()]
       .sort((a,b)=>descriptionCost(a)-descriptionCost(b)||a.metrics.rmse-b.metrics.rmse)
       .filter((candidate,index,array)=>!array.slice(0,index).some(prior=>

@@ -47,6 +47,35 @@ export function contourToStroke(image:ImageReference,contour:ImageContour):Point
   return contour.points.map(([x,y],t)=>({...imageToWorld(image,x,y),t}));
 }
 
+/** Reconnect selected edges when the detector changes its contour numbering. */
+export function matchSelectedContours(image:ImageReference,strokes:readonly Point[][]):Map<number,Point[]> {
+  const selected=new Map<number,Point[]>();
+  if(!strokes.length)return selected;
+  const {xMin,xMax,yMin,yMax}=image.bounds;
+  const masks=strokes.map(stroke=>{
+    const occupied=new Uint8Array(image.width*image.height);
+    for(const point of stroke){
+    const x=Math.round((point.x-xMin)/(xMax-xMin)*image.width-.5);
+    const y=Math.round((yMax-point.y)/(yMax-yMin)*image.height-.5);
+    for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){
+      if(x+dx>=0&&x+dx<image.width&&y+dy>=0&&y+dy<image.height&&dx*dx+dy*dy<=9)
+        occupied[(y+dy)*image.width+x+dx]=1;
+    }
+    }
+    return occupied;
+  });
+  for(let i=0;i<image.contours.length;i++){
+    const points=image.contours[i].points;
+    let best=-1,coverage=.6;
+    for(let j=0;j<masks.length;j++){
+      const covered=points.reduce((count,[x,y])=>count+(masks[j][y*image.width+x]??0),0);
+      if(points.length&&covered/points.length>=coverage){best=j;coverage=covered/points.length;}
+    }
+    if(best>=0)selected.set(i,strokes[best]);
+  }
+  return selected;
+}
+
 export function nearestContour(image:ImageReference,view:ViewportTransform,
   px:number,py:number,excluded:ReadonlySet<number>,radius=15):number {
   let closest=-1,best=radius*radius;

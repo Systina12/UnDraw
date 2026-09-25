@@ -88,6 +88,22 @@ it('rounds digits only when opted in and preserves the original Accurate fit',()
   expect(rounded.pareto.some(candidate=>candidate.plain===rounded.balanced.plain)).toBe(true);
 });
 
+it('keeps the noise-aware Simple choice even when the optional rounding limit is tighter',()=>{
+  const x=Float64Array.from({length:128},(_,i)=>-1+2*i/127);
+  const rawY=Float64Array.from(x,v=>1.1*v+.14*Math.sin(29*v));
+  const data=normalizeCurve({x,rawY,weights:new Float64Array(x.length).fill(1),domain:[-1,1]},rawY,.1);
+  const pool=new CandidatePool(data);
+  for(const expr of [variable(),mul(constant(1.1),variable())]){
+    expect(pool.add({expr,modelFamily:'test',freeParameterCount:0,params:[],approximation:false})).toBe(true);
+  }
+  const baseline=finalizeFunctionResult(pool,data,performance.now(),'completed',{enabled:false});
+  expect(baseline.simple.plain).toBe('x');
+  expect(baseline.balanced.plain).toContain('1.1');
+  const rounded=finalizeFunctionResult(pool,data,performance.now(),'completed',
+    {enabled:true,tolerance:.02,translation:true,scaling:true,deformation:true});
+  expect(rounded.simple.plain).toBe('x');
+});
+
 it('allows translation and scaling independently, and blocks shape changes until enabled',()=>{
   const original=add(mul(constant(1.94),variable()),constant(.07));
   const {pool,data}=sample(original);

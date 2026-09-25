@@ -122,6 +122,18 @@ describe('curve preprocessing', () => {
     expect(result.data.sigmaDraw).toBeGreaterThan(0);
   });
 
+  it('measures the original pen noise rather than only interpolated residuals',()=>{
+    const stroke=makeStroke(x=>2*Math.sin(Math.PI*x),
+      {min:-2,max:2,count:256,noise:.018,seed:19});
+    const prepared=preprocess(stroke);
+    expect(prepared.mode).toBe('function');
+    if(prepared.mode!=='function')return;
+    expect(prepared.data.sigmaDraw).toBeGreaterThan(.009);
+    expect(prepared.data.sigmaDraw).toBeLessThan(.035);
+    const sharp=preprocess(makeStroke(x=>Math.abs(x),{min:-2,max:2,count:256}));
+    if(sharp.mode==='function')expect(sharp.data.sigmaDraw).toBeLessThan(.006);
+  });
+
   it('samples circles by arc length and rejects tiny inputs', () => {
     const circle = Array.from({ length: 180 }, (_, i) => {
       const angle = 2 * Math.PI * i / 179;

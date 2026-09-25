@@ -39,6 +39,22 @@ describe('pointer capture', () => {
     expect(cancelled).toHaveBeenCalledTimes(1);
   });
 
+  it('drops a browser-canceled gesture without completing the stroke',()=>{
+    const canvas=document.createElement('canvas');
+    canvas.setPointerCapture=vi.fn();canvas.releasePointerCapture=vi.fn();
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:100,height:100} as DOMRect);
+    const view=new ViewportTransform({xMin:-5,xMax:5,yMin:-5,yMax:5},100,100);
+    const completed=vi.fn(),cancelled=vi.fn();
+    captureStroke(canvas,view,completed,undefined,cancelled);
+    const pointer=(type:string,x:number)=>canvas.dispatchEvent(Object.assign(new Event(type),{
+      pointerId:1,pointerType:'touch',button:0,clientX:x,clientY:50,
+    }));
+    pointer('pointerdown',10);pointer('pointermove',70);pointer('pointercancel',70);
+    expect(completed).not.toHaveBeenCalled();expect(cancelled).toHaveBeenCalledOnce();
+    pointer('pointerdown',10);pointer('pointerup',70);
+    expect(completed).toHaveBeenCalledOnce();
+  });
+
   it('cancels the pending stroke and pans when two fingers move together', () => {
     const canvas = document.createElement('canvas');
     canvas.setPointerCapture = vi.fn();

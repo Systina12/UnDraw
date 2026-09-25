@@ -44,7 +44,9 @@ export class CandidatePool {
       // new constants created by constant folding.
       const expr=displayExpr(simplify(displayExpr(draft.expr),this.data.domain));
       const signature=structuralHash(expr);
-      if(this.candidates.has(signature))return false;
+      const previous=this.candidates.get(signature);
+      if(previous&&previous.freeParameterCount<=draft.freeParameterCount&&
+        (!previous.approximation||draft.approximation))return false;
       // Beautification and display rounding can move a rational pole into the domain.
       // Check between sampled points as well as on them before accepting the result.
       const denominators=variableDenominators(expr);
@@ -82,6 +84,8 @@ export class CandidatePool {
       const score=scoreMdl({mseNormalized,sigmaNormalized:this.data.sigmaDraw/scale,n,k:expressionCost(expr,draft.freeParameterCount)});
       const candidate:Candidate={...draft,expr,metrics:{rmse,normalizedRmse:rmse/scale,mseNormalized,robustError:huber/n,maxError:maxError*scale},complexity,score,signature};
       if(!Number.isFinite(score))throw Error('Invalid score');
+      if(previous&&previous.score<=candidate.score&&
+        (previous.approximation===candidate.approximation||!previous.approximation))return false;
       this.candidates.set(signature,candidate);
       if(this.candidates.size>this.capacity){
         const worst=[...this.candidates.values()].sort((a,b)=>b.score-a.score)[0];
