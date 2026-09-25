@@ -16,6 +16,23 @@ describe('expression tree', () => {
     expect(evaluate(expression,5).value).toBeCloseTo(5**8*1e-12,13);
     expect(evaluate(simplify(expression,[-5,5]),5).value).toBeCloseTo(5**8*1e-12,13);
   });
+  it('collapses normalized powers, outer offsets and exact quarter-turn phases',()=>{
+    const halfPi:Expr={kind:'const',value:{kind:'piMultiple',p:-1,q:2}};
+    const expression:Expr={kind:'add',args:[{kind:'const',value:{kind:'float',value:.25}},
+      {kind:'mul',args:[{kind:'const',value:{kind:'float',value:.5}},
+        {kind:'add',args:[{kind:'const',value:{kind:'float',value:-.5}},
+          {kind:'cos',arg:{kind:'add',args:[halfPi,
+            {kind:'mul',args:[{kind:'const',value:{kind:'float',value:4}},
+              {kind:'pow',base:{kind:'mul',args:[{kind:'const',value:{kind:'float',value:.5}},x]},
+                exponent:{kind:'const',value:{kind:'integer',value:2}}}]},
+          ]}}]}]}]};
+    const clean=simplify(expression,[-2,2]);
+    expect(toPlain(clean)).toContain('sin(');
+    expect(toPlain(clean)).not.toContain('cos(');
+    expect(toPlain(clean)).not.toContain(' + ');
+    for(const sample of [-2,-1,.3,1.6])expect(evaluate(clean,sample).value)
+      .toBeCloseTo(evaluate(expression,sample).value,12);
+  });
   it('evaluates a mathematical constant and renders understandable formats', () => {
     const expr: Expr = {kind:'sin',arg:{kind:'mul',args:[{kind:'const',value:{kind:'piMultiple',p:1,q:1}},x]}};
     expect(evaluate(expr,.5)).toEqual({value:1,valid:true});

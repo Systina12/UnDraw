@@ -21,6 +21,13 @@ export function simplify(expr:Expr,domain?:[number,number]):Expr {
       const base=simplify(expr.base,domain),exponent=simplify(expr.exponent,domain);
       if(is(exponent,0))return integer(1);
       if(is(exponent,1))return base;
+      const power=val(exponent);
+      if(base.kind==='mul'&&base.args[0]?.kind==='const'&&Number.isInteger(power)&&
+        Math.abs(power!)<=8&&power!==0){
+        const coefficient=Math.pow(numericConstant(base.args[0].value),power!);
+        if(Number.isFinite(coefficient)&&coefficient!==0)return simplify(mul(constant(coefficient),
+          pow(base.args.length===2?base.args[1]:mul(...base.args.slice(1)),exponent)),domain);
+      }
       if(val(base)!==null&&val(exponent)!==null){const n=Math.pow(val(base)!,val(exponent)!);if(Number.isFinite(n))return constant(n);}
       return {kind:'pow',base,exponent};
     }
@@ -45,6 +52,12 @@ export function simplify(expr:Expr,domain?:[number,number]):Expr {
     }
     case 'mul':{
       const flat=expr.args.map(e=>simplify(e,domain)).flatMap(e=>e.kind==='mul'?e.args:[e]);
+      const sums=flat.filter(item=>item.kind==='add');
+      if(sums.length===1&&flat.every(item=>item.kind==='const'||item===sums[0])&&
+        sums[0].kind==='add'&&sums[0].args.length<=3){
+        const factors=flat.filter(item=>item!==sums[0]);
+        return simplify({kind:'add',args:sums[0].args.map(item=>mul(...factors,item))},domain);
+      }
       const terms=new Map<string,{expr:Expr;power:number}>();
       let factor=1;const constants:Expr[]=[];
       for(const item of flat){
@@ -69,6 +82,19 @@ export function simplify(expr:Expr,domain?:[number,number]):Expr {
       if(expr.kind==='log'&&is(arg,1))return integer(0);
       if(expr.kind==='sin'||expr.kind==='cos'){
         if(is(arg,0))return integer(expr.kind==='sin'?0:1);
+        if(arg.kind==='add'){
+          const quarter=arg.args.find(part=>part.kind==='const'&&part.value.kind==='piMultiple'&&
+            Number.isInteger(2*part.value.p/part.value.q));
+          if(quarter?.kind==='const'&&quarter.value.kind==='piMultiple'){
+            const turns=((2*quarter.value.p/quarter.value.q)%4+4)%4;
+            const rest=simplify({kind:'add',args:arg.args.filter(part=>part!==quarter)},domain);
+            const swap=turns%2===1;
+            const kind=swap?(expr.kind==='sin'?'cos':'sin'):expr.kind;
+            const sign=expr.kind==='sin'?(turns>=2?-1:1):turns===1||turns===2?-1:1;
+            const shifted={kind,arg:rest} as Expr;
+            return sign<0?simplify(mul(integer(-1),shifted),domain):shifted;
+          }
+        }
         if(arg.kind==='mul'&&arg.args[0]?.kind==='const'&&numericConstant(arg.args[0].value)<0){
           const positive=simplify(mul(constant(-numericConstant(arg.args[0].value)),...arg.args.slice(1)),domain);
           const inner={kind:expr.kind,arg:positive} as Expr;

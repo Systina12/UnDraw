@@ -70,14 +70,21 @@ export function captureStroke(canvas: HTMLCanvasElement, transform: ViewportTran
     if(points.length>=8||distance>=4)onComplete([...points]);
     else onCancel?.();
   };
+  const interrupted = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') {
+      touches.delete(event.pointerId);
+      if (touches.size === 0) touchPanning = false;
+    }
+    if (event.pointerId === active) cancel();
+  };
   canvas.addEventListener('pointerdown', down);
   canvas.addEventListener('pointermove', move);
   canvas.addEventListener('pointerup', finish);
-  canvas.addEventListener('pointercancel', finish);
+  canvas.addEventListener('pointercancel', interrupted);
   return () => {
     canvas.removeEventListener('pointerdown', down);
     canvas.removeEventListener('pointermove', move);
     canvas.removeEventListener('pointerup', finish);
-    canvas.removeEventListener('pointercancel', finish);
+    canvas.removeEventListener('pointercancel', interrupted);
   };
 }

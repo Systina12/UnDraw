@@ -259,7 +259,7 @@ export async function solveStrokesProgressive(strokes:readonly (readonly Point[]
     if(hooks.shouldAbort())throw new CancelledSolve();
     try{
       const remaining=atoms.length-index;
-      const budget=options.timeBudgetMs===0?0:Math.min(900,
+      const budget=options.timeBudgetMs===0?0:Math.min(atoms.length===1?Infinity:900,
         Math.max(0,(deadline-performance.now()-(mode==='auto'?400:0))/remaining));
       const result=await solveCurveProgressive(atom.points,{...fitOptions,timeBudgetMs:budget},{
         now:()=>performance.now(),shouldAbort:hooks.shouldAbort,yieldControl:hooks.yieldControl,

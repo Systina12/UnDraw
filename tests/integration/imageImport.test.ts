@@ -9,8 +9,10 @@ it('imports a locally detected contour as a stroke and waits for Find functions'
     postMessage(request:(typeof messages)[number]):void{
       messages.push(request);
       if(request.pixels){
-        queueMicrotask(()=>this.onmessage?.({data:{id:request.id,contours:[{length:90,
-          points:Array.from({length:90},(_,i)=>[i+15,30] as [number,number])}]}} as MessageEvent));
+        const original={length:90,points:Array.from({length:90},(_,i)=>[i+15,30] as [number,number])};
+        const unrelated={length:90,points:Array.from({length:90},(_,i)=>[i+15,65] as [number,number])};
+        queueMicrotask(()=>this.onmessage?.({data:{id:request.id,
+          contours:messages.length===1?[original]:[unrelated,original]}} as MessageEvent));
       }
     }
     terminate():void{}
@@ -53,6 +55,13 @@ it('imports a locally detected contour as a stroke and waits for Find functions'
     expect(start.x).toBeCloseTo(15.5);
     expect(end.x).toBeCloseTo(104.5);
     expect(start.y).toBeCloseTo(49.5);
+    const detail=root.querySelector<HTMLSelectElement>('[data-image-detail] select')!;
+    detail.value='high';detail.dispatchEvent(new Event('change'));
+    await vi.waitFor(()=>expect(root.querySelector('[data-image-status]')?.textContent)
+      .toContain('2 edges detected'));
+    pointer('pointerdown',5,160,85);pointer('pointerup',5,160,85);
+    expect(root.querySelector('[data-formula]')!.textContent).toContain('Looking for');
+    expect(root.querySelector('[data-image-status]')?.textContent).toContain('Tap a highlighted edge');
     root.querySelector<HTMLButtonElement>('[data-action="undo"]')!.click();
     expect(root.querySelector('[data-formula]')!.textContent).toContain('Draw one or more strokes');
     pointer('pointerdown',2,160,85);pointer('pointerup',2,160,85);

@@ -28,6 +28,23 @@ function drawingNoise(raw: Float64Array, smooth: Float64Array): number {
   return Math.max(1.4826 * mad(residuals), 1e-9, range * 1e-6);
 }
 
+/** Estimate pen noise before interpolation erases most of its variance. */
+function originalNoise(points:readonly Point[]):number {
+  if(points.length<12)return 0;
+  const ordered=[...points].sort((a,b)=>a.x-b.x);
+  const residuals:number[]=[];
+  for(let i=1;i<ordered.length-1;i++){
+    const left=ordered[i-1],middle=ordered[i],right=ordered[i+1];
+    const span=right.x-left.x;
+    if(span<=1e-10)continue;
+    const weight=(middle.x-left.x)/span;
+    if(weight<.05||weight>.95)continue;
+    const residual=middle.y-(left.y*(1-weight)+right.y*weight);
+    residuals.push(residual/Math.sqrt(1+(1-weight)**2+weight**2));
+  }
+  return residuals.length>=8?1.4826*mad(residuals):0;
+}
+
 export function preprocess(points: readonly Point[], sampleCount = 256): PreprocessedCurve {
   const clean = sanitizeStroke(points);
   if (clean.length < 2) throw new InvalidCurveError('too-few-points');
@@ -50,7 +67,10 @@ export function preprocess(points: readonly Point[], sampleCount = 256): Preproc
   }
   const sampled = resampleFunction(trace, sampleCount);
   const smoothY = smoothSeries(sampled.rawY);
-  const data=normalizeCurve(sampled,smoothY,drawingNoise(sampled.rawY,smoothY));
+  // A resampled stroke averages nearby noisy samples, so its residual alone severely
+  // understates the drawing noise. Correct for the averaging when scoring models.
+  const noise=Math.max(drawingNoise(sampled.rawY,smoothY),.8*originalNoise(clean));
+  const data=normalizeCurve(sampled,smoothY,noise);
   data.features=extractFeatures(data);
   return { mode: 'function', data };
 }

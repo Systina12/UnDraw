@@ -13,8 +13,8 @@ import {fitTanh} from '../models/tanh';
 import {fitLogistic} from '../models/logistic';
 import {fitDampedSinusoid} from '../models/dampedSinusoid';
 
-export function* quickModelBank(data:CurveData):Iterable<CandidateDraft>{
-  for(let degree=0;degree<=4;degree++){
+export function* quickModelBank(data:CurveData,minDegree=0):Iterable<CandidateDraft>{
+  for(let degree=minDegree;degree<=4;degree++){
     const candidate=fitPolynomial(data,degree);if(candidate)yield candidate;
   }
   if((data.features?.periodicity??0)>.4)yield* fitSinusoid(data);
