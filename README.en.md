@@ -16,6 +16,14 @@ UnDraw finds mathematical expressions for hand-drawn curves and image traces. Fi
 
 Hand-drawn input · image tracing · fitted curves
 
+## Naiwa equations
+
+Fourteen fitted strokes, plotted from the supplied coefficients with Python. See the [Chinese README](README.md#奶蛙表达式) for all equations.
+
+![Naiwa equations plotted with Python](docs/images/naiwa-equations.svg)
+
+To redraw, install `numpy` and `matplotlib`, then run `python docs/plot_naiwa.py`.
+
 ## How to use
 
 1. Draw one or more strokes on the coordinate plane, or **Upload image** and tap the edges you want to fit. Use **Draw by hand** to trace over an image.
