@@ -28,7 +28,7 @@ UnDraw 能为手绘曲线和图片中的线条寻找表达式。拟合与边缘�
 
 ### 14 段公式
 
-**第 1 段**（$0 \le t \le 1$）
+**第 1 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -45,7 +45,7 @@ y(t)&= 1380.97 - 125.962\cdot \left|t-0.0769231\right| - 163.637\cdot \left|t-0.
 \end{aligned}
 $$
 
-**第 2 段**（$\displaystyle x \in [268, 364]$）
+**第 2 段**（x ∈ [268, 364]）
 
 $$
 \begin{aligned}
@@ -53,7 +53,7 @@ y_{2}&=1324.55 + \left(-1.3956 + \left(1.39205 + \left(0.321735 + -0.761374\cdot
 \end{aligned}
 $$
 
-**第 3 段**（$0 \le t \le 1$）
+**第 3 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -70,7 +70,7 @@ y(t)&= 1648.62 + 27.9794\cdot \left|t-0.0769231\right| - 11.5636\cdot \left|t-0.
 \end{aligned}
 $$
 
-**第 4 段**（$0 \le t \le 1$）
+**第 4 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -85,7 +85,7 @@ y(t)&= 1575.12 + 11.0662\cdot \left|t-0.111111\right| - 20.7498\cdot \left|t-0.2
 \end{aligned}
 $$
 
-**第 5 段**（$\displaystyle x \in [302.667, 478.667]$）
+**第 5 段**（x ∈ [302.667, 478.667]）
 
 $$
 \begin{aligned}
@@ -93,7 +93,7 @@ y_{5}&=1611.74 + \left(0.521522 + \left(-1.65774 + \left(0.382199 + 0.163053\cdo
 \end{aligned}
 $$
 
-**第 6 段**（$0 \le t \le 1$）
+**第 6 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -108,7 +108,7 @@ y(t)&= 1594.78 - 25.1712\cdot \left|t-0.111111\right| - 9.61936\cdot \left|t-0.2
 \end{aligned}
 $$
 
-**第 7 段**（$0 \le t \le 1$）
+**第 7 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -125,7 +125,7 @@ y(t)&= 1367.52 - 22.637\cdot \left|t-0.0769231\right| + 2.20682\cdot \left|t-0.1
 \end{aligned}
 $$
 
-**第 8 段**（$0 \le t \le 1$）
+**第 8 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -142,7 +142,7 @@ y(t)&= 1359.18 + 84.1538\cdot \left|t-0.0769231\right| + 18.6533\cdot \left|t-0.
 \end{aligned}
 $$
 
-**第 9 段**（$0 \le t \le 1$）
+**第 9 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -157,7 +157,7 @@ y(t)&= 1425.51 + 113.233\cdot \left|t-0.0769231\right| + 139.403\cdot \left|t-0.
 \end{aligned}
 $$
 
-**第 10 段**（$0 \le t \le 1$）
+**第 10 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -174,7 +174,7 @@ y(t)&= 1588.5 - 220.429\cdot \left|t-0.0769231\right| + 152.459\cdot \left|t-0.1
 \end{aligned}
 $$
 
-**第 11 段**（$\displaystyle x \in [649.333, 705.333]$）
+**第 11 段**（x ∈ [649.333, 705.333]）
 
 $$
 \begin{aligned}
@@ -182,7 +182,7 @@ y_{11}&=1441.31 + \left(1.14606 + \left(-0.251613 + \left(-0.0509976 + 0.291583\
 \end{aligned}
 $$
 
-**第 12 段**（$0 \le t \le 1$）
+**第 12 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -199,7 +199,7 @@ y(t)&= 1189.03 + 37.9523\cdot \left|t-0.0769231\right| - 12.285\cdot \left|t-0.1
 \end{aligned}
 $$
 
-**第 13 段**（$0 \le t \le 1$）
+**第 13 段**（t ∈ [0, 1]）
 
 $$
 \begin{aligned}
@@ -216,7 +216,7 @@ y(t)&= 1421.01 - 65.9323\cdot \left|t-0.0769231\right| - 7.14652\cdot \left|t-0.
 \end{aligned}
 $$
 
-**第 14 段**（$\displaystyle x \in [409.333, 489.333]$）
+**第 14 段**（x ∈ [409.333, 489.333]）
 
 $$
 \begin{aligned}
