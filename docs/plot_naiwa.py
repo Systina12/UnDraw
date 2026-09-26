@@ -142,25 +142,49 @@ def polynomial_latex(index: int, f: Polynomial) -> str:
             rf"\cdot {u}\right)\cdot {u}\right)"
             rf"\cdot {f.amplitude}\cdot {u}")
 
-def readme_section() -> str:
+def formula_sections() -> list[tuple[str, str]]:
     sections = []
     for i, stroke in enumerate(STROKES, 1):
         if isinstance(stroke, Polynomial):
             formula = polynomial_latex(i, stroke)
             domain = f"x ∈ [{float(stroke.center)-float(stroke.scale):g}, {float(stroke.center)+float(stroke.scale):g}]"
-            sections.append(f"**第 {i} 段**（{domain}）\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$")
+            sections.append((f"第 {i} 段（{domain}）", formula))
         else:
             formula = hinge_latex("x", stroke[0]) + " \\\\\n" + hinge_latex("y", stroke[1])
-            sections.append(f"**第 {i} 段**（t ∈ [0, 1]）\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$")
+            sections.append((f"第 {i} 段（t ∈ [0, 1]）", formula))
+    return sections
+
+def rendered_formula_doc() -> str:
+    sections = [
+        f"### {label}\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$"
+        for label, formula in formula_sections()
+    ]
+    return (
+        "# 奶蛙表达式\n\n"
+        "[返回 README](../README.md#奶蛙表达式) · "
+        "参数式取 t ∈ [0, 1]，单值函数取各段注明的 x 范围。\n\n"
+        + "\n\n".join(sections)
+        + "\n"
+    )
+
+def readme_section() -> str:
+    fence = chr(96) * 3
+    tick = chr(96)
+    sections = [
+        f"**{label}**\n\n{fence}latex\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n{fence}"
+        for label, formula in formula_sections()
+    ]
     return (
         "## 奶蛙表达式\n\n"
         "下面的图由 Python 按这 14 段表达式绘制。参数式取 $t \\in [0,1]$；"
         "四段 $y(x)$ 按原始归一化区间 $(x-x_c)/x_s \\in [-1,1]$ 绘制。\n\n"
         "![Python 绘制的奶蛙表达式](docs/images/naiwa-equations.svg)\n\n"
-        "重绘：安装 `numpy` 和 `matplotlib` 后运行 `python docs/plot_naiwa.py`。\n\n"
-        "### 14 段公式\n\n"
+        f"重绘：安装 {tick}numpy{tick} 和 {tick}matplotlib{tick} 后运行 "
+        f"{tick}python docs/plot_naiwa.py{tick}。\n\n"
+        "<details>\n<summary>展开 14 段公式（可复制 LaTeX）</summary>\n\n"
+        "[查看排版后的完整公式](docs/naiwa-expressions.md)\n\n"
         + "\n\n".join(sections)
-        + "\n\n"
+        + "\n\n</details>\n\n"
     )
 
 def update_readmes() -> None:
@@ -174,6 +198,7 @@ def update_readmes() -> None:
     if text.count(anchor) != 1:
         raise ValueError("Chinese demo anchor missing or duplicated")
     chinese.write_text(text.replace(anchor, anchor + readme_section()), encoding="utf-8")
+    (root / "docs" / "naiwa-expressions.md").write_text(rendered_formula_doc(), encoding="utf-8")
 
     english = root / "README.en.md"
     text = english.read_text(encoding="utf-8")
@@ -185,7 +210,7 @@ def update_readmes() -> None:
         raise ValueError("English demo anchor missing or duplicated")
     section = ("## Naiwa equations\n\n"
                "Fourteen fitted strokes, plotted from the supplied coefficients with Python. "
-               "See the [Chinese README](README.md#奶蛙表达式) for all equations.\n\n"
+               "See the [full rendered equations](docs/naiwa-expressions.md).\n\n"
                "![Naiwa equations plotted with Python](docs/images/naiwa-equations.svg)\n\n"
                "To redraw, install `numpy` and `matplotlib`, then run `python docs/plot_naiwa.py`.\n\n")
     english.write_text(text.replace(anchor, anchor + section), encoding="utf-8")
