@@ -88,7 +88,12 @@ STROKES: list[tuple[Hinge, Hinge] | Polynomial] = [
 ]
 
 def plot() -> None:
-    plt.rcParams.update({"svg.fonttype": "none", "path.simplify": True, "font.size": 10})
+    plt.rcParams.update({
+        "svg.fonttype": "none",
+        "svg.hashsalt": "naiwa-equations",
+        "path.simplify": True,
+        "font.size": 10,
+    })
     fig, ax = plt.subplots(figsize=(9, 10.5), dpi=150)
     fig.patch.set_facecolor("#ffffff")
     ax.set_facecolor("#f8fafc")
@@ -153,9 +158,9 @@ def readme_section() -> str:
         "四段 $y(x)$ 按原始归一化区间 $(x-x_c)/x_s \\in [-1,1]$ 绘制。\n\n"
         "![Python 绘制的奶蛙表达式](docs/images/naiwa-equations.svg)\n\n"
         "重绘：安装 `numpy` 和 `matplotlib` 后运行 `python docs/plot_naiwa.py`。\n\n"
-        "<details>\n<summary>展开 14 段表达式</summary>\n\n"
+        "### 14 段公式\n\n"
         + "\n\n".join(sections)
-        + "\n\n</details>\n\n"
+        + "\n\n"
     )
 
 def update_readmes() -> None:

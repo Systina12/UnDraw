@@ -26,8 +26,7 @@ UnDraw 能为手绘曲线和图片中的线条寻找表达式。拟合与边缘�
 
 重绘：安装 `numpy` 和 `matplotlib` 后运行 `python docs/plot_naiwa.py`。
 
-<details>
-<summary>展开 14 段表达式</summary>
+### 14 段公式
 
 **第 1 段**（$0 \le t \le 1$）
 
@@ -224,8 +223,6 @@ $$
 y_{14}&=1505.32 + \left(1.2974 + \left(-0.537147 + \left(-0.284273 + 0.326374\cdot \frac{-449.333 + x}{40}\right)\cdot \frac{-449.333 + x}{40}\right)\cdot \frac{-449.333 + x}{40}\right)\cdot 14.4804\cdot \frac{-449.333 + x}{40}
 \end{aligned}
 $$
-
-</details>
 
 ## 怎么玩
 
