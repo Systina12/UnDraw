@@ -1,42 +1,44 @@
 # UnDraw
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](README.en.md) · [简体中文](README.md)
 
-**Sketch a curve. Find its equation.** [Try UnDraw](https://systina12.github.io/UnDraw/).
+**随手画条曲线，找出它的数学表达式。** [打开在线演示](https://systina12.github.io/UnDraw/)。
 
-UnDraw finds mathematical expressions for hand-drawn curves and image traces. Fitting and edge detection run in your browser using Web Workers.
+也许人人都能画出自己的奶蛙表达式
 
-## Demo
+UnDraw 能为手绘曲线和图片中的线条寻找表达式。拟合与边缘识别都在浏览器的 Web Worker 中运行。
+
+## 演示
 
 <p align="center">
-  <img src="docs/images/hand-drawn.jpg" width="230" alt="Hand-drawn input" />
-  <img src="docs/images/image-edges.jpg" width="230" alt="Edges selected from an image" />
-  <img src="docs/images/fitted-curves.jpg" width="230" alt="Fitted curves over the image" />
+  <img src="docs/images/image-edges.jpg" width="230" alt="从图片中选择边缘" />
+  <img src="docs/images/fitted-curves.jpg" width="230" alt="图片上的拟合曲线" />
+  <img src="docs/images/hand-drawn.jpg" width="230" alt="函数重绘" />
 </p>
 
-Hand-drawn input · image tracing · fitted curves
+手绘输入 · 图片描边 · 拟合曲线
 
-## How to use
+## 怎么玩
 
-1. Draw one or more strokes on the coordinate plane, or **Upload image** and tap the edges you want to fit. Use **Draw by hand** to trace over an image.
-2. Choose **One per stroke** or **Best fit · auto count**, then click **Find functions**. Results appear progressively. Drawing a new stroke interrupts the current calculation.
-3. Compare **Simple**, **Balanced**, and **Accurate** (selected by default). **Prefer shorter formulas** can trade a little visual accuracy for simpler coefficients; its default limit is 5%. Copy the result as LaTeX or plain text.
+1. 在坐标系里画一笔或多笔；也可以点 **Upload image** 上传图片，再点选需要拟合的边缘。用 **Draw by hand** 可以在图片上补画。
+2. 选择 **One per stroke**（每笔一个函数）或 **Best fit · auto count**（自动决定函数数量），然后点 **Find functions**。结果会逐步出现；继续画新笔可以打断当前计算。
+3. 比较 **Simple**、**Balanced** 和默认选中的 **Accurate**。展开 **Prefer shorter formulas**，可以用少量视觉误差换取更简短的系数，默认限度为 5%。结果可以复制为 LaTeX 或普通文本。
 
-Use Shift-drag or middle-drag to pan, the wheel or two fingers to zoom, and **Undo**, **Clear**, or **Reset view** as needed. Curves that cannot be written as `y = f(x)` may receive parametric `x(t)` and `y(t)` expressions.
+按住 Shift 拖动或用鼠标中键平移，滚轮或双指缩放；支持撤销、清空和重置视图。对于无法表示为 `y = f(x)` 的曲线，程序还可以给出参数形式 `x(t)`、`y(t)`。
 
-## Run locally
+## 本地运行
 
-Requires Node.js 22 or newer.
+需要 Node.js 22 或更新版本。
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Run `npm test` for the test suite or `npm run build` for the installable, offline-capable production site. After its first online visit, the production app can calculate offline. The UI uses Canvas and KaTeX; the framework-independent solver exports `solveCurve(points, options)` from `src/core/solver.ts`.
+运行 `npm test` 执行测试，或用 `npm run build` 构建可安装、支持离线计算的正式版本。正式版首次联网加载后即可离线计算。界面使用 Canvas 和 KaTeX；独立于界面的求解器在 `src/core/solver.ts` 中导出 `solveCurve(points, options)`。
 
-## Privacy
+## 隐私
 
-Drawings and uploaded images are processed on your device. The page uses Cloudflare Web Analytics for site traffic.
+笔迹和上传的图片在你的设备上处理。页面通过 Cloudflare Web Analytics 统计访问量。
 
-Licensed under [MIT](LICENSE).
+本项目使用 [MIT 许可证](LICENSE)。
