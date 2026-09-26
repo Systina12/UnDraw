@@ -1,10 +1,20 @@
 # UnDraw
 
-[English](README.md) · [简体中文 (coming soon)](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md)
 
 **Sketch a curve. Find its equation.** [Try UnDraw](https://systina12.github.io/UnDraw/).
 
 UnDraw finds mathematical expressions for hand-drawn curves and image traces. Fitting and edge detection run in your browser using Web Workers.
+
+## Demo
+
+<p align="center">
+  <img src="docs/images/hand-drawn.jpg" width="230" alt="Hand-drawn input" />
+  <img src="docs/images/image-edges.jpg" width="230" alt="Edges selected from an image" />
+  <img src="docs/images/fitted-curves.jpg" width="230" alt="Fitted curves over the image" />
+</p>
+
+Hand-drawn input · image tracing · fitted curves
 
 ## How to use
 
@@ -25,8 +35,8 @@ npm run dev
 
 Run `npm test` for the test suite or `npm run build` for the installable, offline-capable production site. After its first online visit, the production app can calculate offline. The UI uses Canvas and KaTeX; the framework-independent solver exports `solveCurve(points, options)` from `src/core/solver.ts`.
 
-## Privacy and limitations
+## Privacy
 
-Drawings and uploaded images are processed on your device. The page uses Cloudflare Web Analytics for site traffic. Fitted expressions approximate the observed strokes; noisy images and overlapping edges may need manual tracing.
+Drawings and uploaded images are processed on your device. The page uses Cloudflare Web Analytics for site traffic.
 
 Licensed under [MIT](LICENSE).
