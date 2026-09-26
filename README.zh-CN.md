@@ -9,9 +9,9 @@ UnDraw 能为手绘曲线和图片中的线条寻找表达式。拟合与边缘�
 ## 演示
 
 <p align="center">
-  <img src="docs/images/hand-drawn.jpg" width="230" alt="手绘输入" />
   <img src="docs/images/image-edges.jpg" width="230" alt="从图片中选择边缘" />
   <img src="docs/images/fitted-curves.jpg" width="230" alt="图片上的拟合曲线" />
+   <img src="docs/images/hand-drawn.jpg" width="230" alt="函数重绘" />
 </p>
 
 手绘输入 · 图片描边 · 拟合曲线
