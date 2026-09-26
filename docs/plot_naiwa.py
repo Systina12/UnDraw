@@ -147,11 +147,11 @@ def readme_section() -> str:
     for i, stroke in enumerate(STROKES, 1):
         if isinstance(stroke, Polynomial):
             formula = polynomial_latex(i, stroke)
-            domain = f"x \\in [{float(stroke.center)-float(stroke.scale):g}, {float(stroke.center)+float(stroke.scale):g}]"
-            sections.append(f"**第 {i} 段**（$\\displaystyle {domain}$）\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$")
+            domain = f"x ∈ [{float(stroke.center)-float(stroke.scale):g}, {float(stroke.center)+float(stroke.scale):g}]"
+            sections.append(f"**第 {i} 段**（{domain}）\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$")
         else:
             formula = hinge_latex("x", stroke[0]) + " \\\\\n" + hinge_latex("y", stroke[1])
-            sections.append(f"**第 {i} 段**（$0 \\le t \\le 1$）\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$")
+            sections.append(f"**第 {i} 段**（t ∈ [0, 1]）\n\n$$\n\\begin{{aligned}}\n{formula}\n\\end{{aligned}}\n$$")
     return (
         "## 奶蛙表达式\n\n"
         "下面的图由 Python 按这 14 段表达式绘制。参数式取 $t \\in [0,1]$；"
