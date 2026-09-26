@@ -18,7 +18,7 @@ Hand-drawn input · image tracing · fitted curves
 
 ## Naiwa equations
 
-Fourteen fitted strokes, plotted from the supplied coefficients with Python. See the [Chinese README](README.md#奶蛙表达式) for all equations.
+Fourteen fitted strokes, plotted from the supplied coefficients with Python. See the [full rendered equations](docs/naiwa-expressions.md).
 
 ![Naiwa equations plotted with Python](docs/images/naiwa-equations.svg)
 
