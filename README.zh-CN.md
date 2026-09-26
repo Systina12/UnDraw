@@ -2,7 +2,9 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-**随手画条曲线，找出它的数学表达式。** [打开在线演示](https://systina12.github.io/UnDraw/)。
+**随手画条曲线，找出它的数学表达式。** [打开在线演示](https://systina12.github.io/UnDraw/)。   
+
+也许人人都能画出自己的奶蛙表达式
 
 UnDraw 能为手绘曲线和图片中的线条寻找表达式。拟合与边缘识别都在浏览器的 Web Worker 中运行。
 
